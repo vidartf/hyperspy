@@ -92,8 +92,10 @@ class GeneralConfig(t.HasTraits):
                                    'only one fully supported. The Ripple (rpl) format it is useful '
                                    'to export data to other software that do not support hdf5')
     interactive = t.CBool(True,
-                          desc='If enabled, HyperSpy will prompt the user when optios are '
+                          desc='If enabled, HyperSpy will prompt the user when options are '
                           'available, otherwise it will use the default values if possible')
+    modal = t.CBool(False,
+                    desc='If enabled, interactive prompts will be modal (blocking execution until completion).')
     logger_on = t.CBool(False,
                         label='Automatic logging',
                         desc='If enabled, HyperSpy will store a log in the current directory '

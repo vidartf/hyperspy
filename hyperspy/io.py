@@ -154,7 +154,10 @@ def load(filenames=None,
         if hyperspy.defaults_parser.preferences.General.interactive is True:
             from hyperspy.gui.tools import Load
             load_ui = Load()
-            load_ui.edit_traits()
+            if hyperspy.defaults_parser.preferences.General.modal is True:
+                load_ui.edit_traits(kind='livemodal')
+            else:
+                load_ui.edit_traits()
             if load_ui.filename:
                 filenames = load_ui.filename
         else:

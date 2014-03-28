@@ -875,6 +875,9 @@ class Signal1DTools(object):
         if signal_range == 'interactive':
             br = BackgroundRemoval(self)
             br.edit_traits()
+        elif signal_range == 'interactive_modal':
+            br = BackgroundRemoval(self)
+            br.edit_traits(kind="livemodal")
         else:
             if background_type == 'PowerLaw':
                 background_estimator = components.PowerLaw()

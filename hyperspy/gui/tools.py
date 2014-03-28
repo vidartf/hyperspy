@@ -741,7 +741,7 @@ class ComponentFit(SpanSelectorInSpectrum):
         self.estimate_parameters = estimate_parameters
         self.fit_independent = fit_independent
         self.fit_kwargs = kwargs
-        if signal_range == "interactive":
+        if signal_range == "interactive" or signal_range == "interactive_modal":
             if not hasattr(self.model, '_plot'):
                 self.model.plot()
             elif self.model._plot is None:
@@ -751,10 +751,10 @@ class ComponentFit(SpanSelectorInSpectrum):
             self.span_selector_switch(on=True)
 
     def _fit_fired(self):
-        if (self.signal_range != "interactive" and
+        if (self.signal_range != "interactive" and self.signal_range != "interactive_modal" and
                 self.signal_range is not None):
             self.model.set_signal_range(*self.signal_range)
-        elif self.signal_range == "interactive":
+        elif self.signal_range == "interactive" or self.signal_range == "interactive_modal":
             self.model.set_signal_range(self.ss_left_value,
                                         self.ss_right_value)
 
@@ -780,14 +780,14 @@ class ComponentFit(SpanSelectorInSpectrum):
         # the components estimate_parameters function (if it has one)
         if self.estimate_parameters:
             if hasattr(self.component, 'estimate_parameters'):
-                if (self.signal_range != "interactive" and
+                if (self.signal_range != "interactive" and self.signal_range != "interactive_modal" and
                         self.signal_range is not None):
                     self.component.estimate_parameters(
                         self.signal,
                         self.signal_range[0],
                         self.signal_range[1],
                         only_current=True)
-                elif self.signal_range == "interactive":
+                elif self.signal_range == "interactive" or self.signal_range == "interactive_modal":
                     self.component.estimate_parameters(
                         self.signal,
                         self.ss_left_value,

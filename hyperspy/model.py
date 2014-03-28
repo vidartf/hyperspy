@@ -1614,6 +1614,8 @@ class Model(list):
                           estimate_parameters, fit_independent, **kwargs)
         if signal_range == "interactive":
             cf.edit_traits()
+        elif signal_range == "interactive_modal":
+            cf.edit_traits(kind="livemodal")
         else:
             cf.apply()
 

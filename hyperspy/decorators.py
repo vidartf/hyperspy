@@ -66,7 +66,10 @@ def interactive_range_selector(cm):
         if preferences.General.interactive is True and not args and not kwargs:
             range_selector = SpectrumRangeSelector(self)
             range_selector.on_close.append((cm, self))
-            range_selector.edit_traits()
+            if preferences.General.modal is True:
+                range_selector.edit_traits(kind='livemodal')
+            else:
+                range_selector.edit_traits()
         else:
             cm(self, *args, **kwargs)
     return wrapper
