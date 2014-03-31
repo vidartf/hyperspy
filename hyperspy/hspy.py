@@ -105,3 +105,7 @@ def create_model(signal, *args, **kwargs):
         return EELSModel(signal, *args, **kwargs)
     else:
         return Model(signal, *args, **kwargs)
+
+def create_model_gaussian(signal, *args, **kwargs):
+    from hyperspy.models.gaussianmodel import GaussianModel
+    return GaussianModel(signal, *args, **kwargs)

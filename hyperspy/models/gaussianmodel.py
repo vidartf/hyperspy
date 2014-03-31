@@ -28,14 +28,14 @@ from hyperspy import hspy
 from hyperspy.model import Model
 
 
+sqrt2pi = math.sqrt(2 * math.pi)
+sigma2fwhm = 2 * math.sqrt(2 * math.log(2))     
+fwhm2sigma = 1 / (2 * math.sqrt(math.log(2) * 2))
+
 class GaussianModel(Model):
 
-    sqrt2pi = math.sqrt(2 * math.pi)
-    sigma2fwhm = 2 * math.sqrt(2 * math.log(2))     
-    fwhm2sigma = 1 / (2 * math.sqrt(math.log(2) * 2))
-
-    def __init__(self, spectrum, n_gauss=None):
-        Model.__init__(self, spectrum)
+    def __init__(self, spectrum, n_gauss=None, *args, **kwargs):
+        Model.__init__(self, spectrum, *args, **kwargs)
         self.gaussians = []
         self.coarse_fit(n_gauss)
         self.fit()
@@ -72,7 +72,7 @@ class GaussianModel(Model):
         # Estimate sigmas and amplitudes
         sigmas = ds*fwhm2sigma
         ic = self.spectrum.axes_manager[0].value2index(self.centres)
-        amps = self.spectrum[ic]*sqrt2pi*sigmas
+        amps = self.spectrum.data[ic]*sqrt2pi*sigmas
 
         return (sigmas, amps)
 
