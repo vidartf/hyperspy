@@ -74,6 +74,17 @@ def interactive_range_selector(cm):
             cm(self, *args, **kwargs)
     return wrapper
 
+@simple_decorator
+def modal_interactive_range_selector(cm):
+    def wrapper(self, *args, **kwargs):
+        if preferences.General.interactive is True and not args and not kwargs:
+            range_selector = SpectrumRangeSelector(self)
+            range_selector.on_close.append((cm, self))
+            range_selector.edit_traits(kind='livemodal')
+        else:
+            cm(self, *args, **kwargs)
+    return wrapper
+
 
 @simple_decorator
 def auto_replot(cm):
