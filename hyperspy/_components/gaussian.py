@@ -74,7 +74,7 @@ class Gaussian(Component):
 
     def function(self, x):
         A = self.A.value
-        sigma = self.sigma.value
+        sigma = self.sigma.value or 1e-20   # Should maybe use float min value instead
         centre = self.centre.value
         return A * (1 / (sigma * sqrt2pi)) * np.exp(
             -(x - centre) ** 2 / (2 * sigma ** 2))
@@ -197,4 +197,5 @@ class Gaussian(Component):
 
     @maximum.setter
     def maximum(self, value):
-        self.A.value = value * self.sigma.value * sqrt2pi
+        sigma = self.sigma.value or 1e-20   # Should maybe use float min value instead
+        self.A.value = value * sigma * sqrt2pi
