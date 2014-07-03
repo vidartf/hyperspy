@@ -2525,6 +2525,7 @@ class Signal(MVA,
         self.auto_replot = True
         self.inav = SpecialSlicers(self, True)
         self.isig = SpecialSlicers(self, False)
+        self.ROIs = set()
 
     @property
     def mapped_parameters(self):
