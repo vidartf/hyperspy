@@ -660,7 +660,7 @@ class AxesManager(t.HasTraits):
             # here to avoid difficult to debug bugs.
             axis.axes_manager = self
             if axis.navigate:
-                self.navigation_axes += axis
+                self.navigation_axes += axis,
                 getitem_tuple += axis.index,
             else:
                 self.signal_axes += axis,
