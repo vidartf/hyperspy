@@ -3137,7 +3137,7 @@ class Signal(MVA,
                 filename = os.path.join(
                     self.tmp_parameters.folder,
                     self.tmp_parameters.filename)
-                extension = (self.tmp_parameters.extension
+                extesion = (self.tmp_parameters.extension
                             if not extension
                             else extension)
             elif self.metadata.has_item('General.original_filename'):

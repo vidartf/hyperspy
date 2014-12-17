@@ -669,10 +669,7 @@ class MVA():
         self._unfolded4decomposition = self.unfold_if_multidim()
 
         sc = self.deepcopy()
-        if self.axes_manager[0].index_in_array == 0:
-            sc.data = a.T.reshape(self.data.shape)
-        else:
-            sc.data = a.reshape(self.data.shape)
+        sc.data = a.T.reshape(self.data.shape)
         sc.metadata.General.title += signal_name
         if target.mean is not None:
             sc.data += target.mean
