@@ -28,7 +28,6 @@ class MPL_HyperExplorer(object):
     """
 
     def __init__(self):
-        self.signal_test = None
         self.signal_data_function = None
         self.navigator_data_function = None
         self.axes_manager = None
