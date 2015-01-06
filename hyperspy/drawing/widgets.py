@@ -37,6 +37,7 @@ class DraggablePatch(object):
         """
         Add a cursor to ax.
         """
+        self._axes_manager = None
         self.axes_manager = axes_manager
         self.ax = None
         self.picked = False
@@ -48,6 +49,36 @@ class DraggablePatch(object):
         self.cids = list()
         self.blit = True
         self.background = None
+        
+    @property
+    def axes_manager(self):
+        return self._axes_manager
+        
+    @axes_manager.setter
+    def axes_manager(self, value):
+        self._axes_manager = value
+        self._xaxis = None
+        self._yaxis = None
+        
+    @property 
+    def xaxis(self):
+        if self._xaxis is None:
+            return self.axes_manager.navigation_axes[0]
+        return self._xaxis
+            
+    @xaxis.setter
+    def xaxis(self, value):
+        self._xaxis = value
+            
+    @property 
+    def yaxis(self):
+        if self._yaxis is None:
+            return self.axes_manager.navigation_axes[1]
+        return self._yaxis
+        
+    @yaxis.setter
+    def yaxis(self, value):
+        self._yaxis = value
 
     def is_on(self):
         return self.__is_on
@@ -570,7 +601,7 @@ class DraggableHorizontalLine(DraggablePatch):
         'on mouse motion draw the cursor if picked'
         if self.picked is True and event.inaxes:
             try:
-                self.axes_manager.navigation_axes[0].value = event.ydata
+                self.xaxis.value = event.ydata
             except traits.api.TraitError:
                 # Index out of range, we do nothing
                 pass
@@ -597,7 +628,7 @@ class DraggableVerticalLine(DraggablePatch):
         'on mouse motion draw the cursor if picked'
         if self.picked is True and event.inaxes:
             try:
-                self.axes_manager.navigation_axes[0].value = event.xdata
+                self.xaxis.value = event.xdata
             except traits.api.TraitError:
                 # Index out of range, we do nothing
                 pass
