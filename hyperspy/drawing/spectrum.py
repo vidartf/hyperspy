@@ -151,7 +151,7 @@ class SpectrumFigure(BlittedFigure):
         
 
     def update(self):
-        for line in self.ax_lines + self.right_ax_line:
+        for line in self.ax_lines + self.right_ax_lines:
             line.update()
 
 
