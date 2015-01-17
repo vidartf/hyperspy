@@ -80,7 +80,7 @@ class MPL_HyperExplorer(object):
             # Add the line to the figure
             sf.add_line(sl)
             sf.plot()
-            self.pointer.add_axes(sf.ax)
+            self.pointer.set_axes(sf.ax)
             if self.axes_manager.navigation_dimension > 1:
                 navigation_sliders(
                     self.axes_manager.navigation_axes,
@@ -107,7 +107,7 @@ class MPL_HyperExplorer(object):
 
             imf.title = self.signal_title + ' Navigator'
             imf.plot()
-            self.pointer.add_axes(imf.ax)
+            self.pointer.set_axes(imf.ax)
             self.navigator_plot = imf
 
     def close_navigator_plot(self):
@@ -136,7 +136,7 @@ class MPL_HyperExplorer(object):
 
         if nav_dim == 2:  # It is an image
             if self.axes_manager.navigation_dimension > 1:
-                Pointer = widgets.DraggableSquare
+                Pointer = widgets.ResizableDraggableRectangle
             else:  # It is the image of a "spectrum stack"
                 Pointer = widgets.DraggableHorizontalLine
         elif nav_dim == 1:  # It is a spectrum

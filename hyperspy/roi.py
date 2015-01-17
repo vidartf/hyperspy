@@ -42,7 +42,7 @@ class RectangularROI(BaseROI):
 
     def update(self):
         if t.Undefined not in (self.top, self.bottom, self.left, self.right):
-            self.events.roi_changed.trigger()
+            self.events.roi_changed.trigger(self)
 
     def __call__(self, signal, out=None):
         if out is None:
