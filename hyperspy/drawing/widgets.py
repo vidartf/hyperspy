@@ -248,6 +248,84 @@ class ResizableDraggableRectangle(ResizableDraggablePatchBase):
         if self._resizers != value:
             self._resizers = value
             
+    def _parse_bounds_args(self, args, kwargs):
+        if len(args) == 1:
+            return args[0]
+        elif len(args) == 4:
+           return args
+        elif len(kwargs) == 1 and kwargs.has_key('bounds'):
+            return kwargs.values()[0]
+        else:
+            x = kwargs.pop('x', kwargs.pop('left', self._pos[0]))
+            y = kwargs.pop('y', kwargs.pop('bottom', self._pos[1]))
+            if kwargs.has_key('right'):
+                w = kwargs.pop('right') - x
+            else:
+                w = kwargs.pop('w', kwargs.pop('width', self._xsize))
+            if kwargs.has_key('top'):
+                h = kwargs.pop('top') - y
+            else:
+                h = kwargs.pop('h', kwargs.pop('height', self._ysize)) 
+            return x, y, w, h
+            
+    def set_ibounds(self, *args, **kwargs):
+        """
+        Set bounds by indices. Bounds can either be specified in order left,
+        bottom, width, height; or by keywords:
+         * 'bounds': tuple (left, bottom, width, height)
+         OR
+         * 'x'/'left'
+         * 'y'/'bottom'
+         * 'w'/'width', alternatively 'right'
+         * 'h'/'height', alternatively 'top'
+        If specifying with keywords, any unspecified dimensions will be kept
+        constant (note: width/height will be kept, not right/top).
+        """
+
+        x, y, w, h = self._parse_bounds_args(args, kwargs)
+            
+        if not (self.xaxis.low_index <= x <= self.xaxis.high_index):
+            raise ValueError()
+        if not (self.yaxis.low_index <= y <= self.yaxis.high_index):
+            raise ValueError()
+        if not (self.xaxis.low_index <= x+w <= self.xaxis.high_index):
+            raise ValueError()
+        if not (self.yaxis.low_index <= y+h <= self.yaxis.high_index):
+            raise ValueError()
+            
+        self._suspend()
+        self._pos = (x, y)
+        self._xsize = w
+        self._ysize = h
+        self._resume()
+        
+    def set_bounds(self, *args, **kwargs):
+        """
+        Set bounds by values. Bounds can either be specified in order left,
+        bottom, width, height; or by keywords:
+         * 'bounds': tuple (left, bottom, width, height)
+         OR
+         * 'x'/'left'
+         * 'y'/'bottom'
+         * 'w'/'width', alternatively 'right'
+         * 'h'/'height', alternatively 'top'
+        If specifying with keywords, any unspecified dimensions will be kept
+        constant (note: width/height will be kept, not right/top).
+        """
+
+        x, y, w, h = self._parse_bounds_args(args, kwargs)
+            
+        ix = self.xaxis.value2index(x)
+        iy = self.yaxis.value2index(y)
+        w = self.xaxis.value2index(x+w, rounding=np.floor) - ix
+        h = self.yaxis.value2index(y+h, rounding=np.floor) - iy
+            
+        self._suspend()
+        self._pos = (ix, iy)
+        self._xsize = w
+        self._ysize = h
+        self._resume()
+            
     @property
     def position(self):
         return self._pos
@@ -409,13 +487,13 @@ class ResizableDraggableRectangle(ResizableDraggablePatchBase):
         ys = self.yaxis.scale * self._ysize
         return xs, ys
         
-    def _get_coordinates(self):
+    def get_coordinates(self):
         x = self.xaxis.index2value(self.position[0])
         y = self.yaxis.index2value(self.position[1])
         return x, y
 
     def _get_patch_xy(self):
-        coordinates = np.array(self._get_coordinates())
+        coordinates = np.array(self.get_coordinates())
         xs, ys = self._get_size_in_axes()
         return coordinates - (xs / (2.*self._xsize), ys / (2.*self._ysize))
         
@@ -429,14 +507,16 @@ class ResizableDraggableRectangle(ResizableDraggablePatchBase):
         self._update_patch_geometry()
 
     def _update_patch_position(self):
-        self.patch.set_xy(self._get_patch_xy())
-        self._update_resizers()
-        self.draw_patch()
+        if self.is_on() and self.patch is not None:
+            self.patch.set_xy(self._get_patch_xy())
+            self._update_resizers()
+            self.draw_patch()
         
     def _update_patch_geometry(self):
-        self.patch.set_bounds(*self._get_patch_bounds())
-        self._update_resizers()
-        self.draw_patch()
+        if self.is_on() and self.patch is not None:
+            self.patch.set_bounds(*self._get_patch_bounds())
+            self._update_resizers()
+            self.draw_patch()
         
     def _update_resizers(self):
         pos = self._get_resizer_pos()
@@ -492,7 +572,7 @@ class ResizableDraggableRectangle(ResizableDraggablePatchBase):
         positions.append(p)
         p = rp + (xs - dl[0], -rsize[1] + dl[1])
         positions.append(p)
-        p = rp + (-rsize[0] + dl[1], ys - dl[1])
+        p = rp + (-rsize[0] + dl[0], ys - dl[1])
         positions.append(p)
         p = rp + (xs - dl[0], ys - dl[1])
         positions.append(p)
