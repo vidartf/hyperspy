@@ -1,5 +1,6 @@
 import traits.api as t
 from hyperspy.events import Events, Event
+import hyperspy.interactive
 from hyperspy.drawing.widgets import ResizableDraggableRectangle
 
 
@@ -52,7 +53,7 @@ class RectangularROI(BaseROI):
             if not self.events.roi_changed.suppress:
                 self._update_widgets()
             self.events.roi_changed.trigger(self)
-    
+
     def _update_widgets(self, exclude=set()):
         if not isinstance(exclude, set):
             exclude = set(exclude)
@@ -60,6 +61,11 @@ class RectangularROI(BaseROI):
             with w.events.suppress:
                 w.set_bounds(left=self.left, bottom=self.bottom, 
                              right=self.right, top=self.top)
+
+    def interactive(self, signal):
+        return hyperspy.interactive.interactive(signal, self.__call__, 
+                                         event=self.events.roi_changed,
+                                         signal=signal)
 
     def __call__(self, signal, out=None):
         if out is None:
@@ -82,7 +88,7 @@ class RectangularROI(BaseROI):
                 self._bounds_check = True
         self._update_widgets(exclude=(widget,))
         self.events.roi_changed.trigger()
-        
+
     def _parse_axes(self, axes, axes_manager, plot):
         if isinstance(axes, basestring):
             # Specifies space
