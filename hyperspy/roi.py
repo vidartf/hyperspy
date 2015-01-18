@@ -15,27 +15,32 @@ class RectangularROI(BaseROI):
     def __init__(self, left, bottom, right, top):
         super(RectangularROI, self).__init__()
         self.top, self.bottom, self.left, self.right = top, bottom, left, right
+        self._bounds_check = True   # Use reponsibly!
 
     def _top_changed(self, old, new):
-        if self.bottom is not t.Undefined and new <= self.bottom:
+        if self._bounds_check and \
+                self.bottom is not t.Undefined and new <= self.bottom:
             self.top = old
         else:
             self.update()
 
     def _bottom_changed(self, old, new):
-        if self.top is not t.Undefined and new >= self.top:
+        if self._bounds_check and \
+                self.top is not t.Undefined and new >= self.top:
             self.bottom = old
         else:
             self.update()
 
     def _right_changed(self, old, new):
-        if self.left is not t.Undefined and new <= self.left:
+        if self._bounds_check and \
+                self.left is not t.Undefined and new <= self.left:
             self.right = old
         else:
             self.update()
 
     def _left_changed(self, old, new):
-        if self.right is not t.Undefined and new >= self.right:
+        if self._bounds_check and \
+                self.right is not t.Undefined and new >= self.right:
             self.left = old
         else:
             self.update()
