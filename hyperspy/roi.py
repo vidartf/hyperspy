@@ -1,5 +1,6 @@
 import traits.api as t
 from hyperspy.events import Events, Event
+from hyperspy.drawing.widgets import ResizableDraggableRectangle
 
 
 class BaseROI(t.HasTraits):
@@ -7,6 +8,7 @@ class BaseROI(t.HasTraits):
         super(BaseROI, self).__init__()
         self.events = Events()
         self.events.roi_changed = Event()
+        self.widgets = set()
 
 
 class RectangularROI(BaseROI):
@@ -47,7 +49,17 @@ class RectangularROI(BaseROI):
 
     def update(self):
         if t.Undefined not in (self.top, self.bottom, self.left, self.right):
+            if not self.events.roi_changed.suppress:
+                self._update_widgets()
             self.events.roi_changed.trigger(self)
+    
+    def _update_widgets(self, exclude=set()):
+        if not isinstance(exclude, set):
+            exclude = set(exclude)
+        for w in self.widgets - exclude:
+            with w.events.suppress:
+                w.set_bounds(left=self.left, bottom=self.bottom, 
+                             right=self.right, top=self.top)
 
     def __call__(self, signal, out=None):
         if out is None:
@@ -57,6 +69,70 @@ class RectangularROI(BaseROI):
             signal.__getitem__((slice(self.left, self.right),
                                 slice(self.bottom, self.top)),
                                out=out)
+
+    def _on_widget_change(self, widget):
+        with self.events.suppress:
+            self._bounds_check = False
+            try:
+                self.left, self.bottom = widget.get_coordinates()
+                w, h = widget._get_size_in_axes()
+                self.right = self.left + w
+                self.top = self.bottom + h
+            finally:
+                self._bounds_check = True
+        self._update_widgets(exclude=(widget,))
+        self.events.roi_changed.trigger()
+        
+    def _parse_axes(self, axes, axes_manager, plot):
+        if isinstance(axes, basestring):
+            # Specifies space
+            if axes.startswith("nav"):
+                ax = plot.navigator_plot.ax
+                x = axes_manager.navigation_axes[0]
+                y = axes_manager.navigation_axes[1]
+            elif axes.startswith("sig"):
+                ax = plot.signal_plot.ax
+                x = axes_manager.signal_axes[0]
+                y = axes_manager.signal_axes[1]
+        elif isinstance(axes, tuple):
+            x = axes_manager[axes[0]]
+            y = axes_manager[axes[1]]
+            if x.navigate != y.navigate:
+                raise ValueError("Axes need to be in same space")
+            if x.navigate:
+                ax = plot.navigator_plot.ax
+            else:
+                ax = plot.signal_plot.ax
+        else:
+            if axes_manager.navigation_dimension > 1:
+                ax = plot.navigator_plot.ax
+                x = axes_manager.navigation_axes[0]
+                y = axes_manager.navigation_axes[1]
+            elif axes_manager.signal_dimension > 1:
+                ax = plot.signal_plot.ax
+                x = axes_manager.signal_axes[0]
+                y = axes_manager.signal_axes[1]
+            else:
+                raise ValueError("Neither space has two dimensions")
+        return (x,y), ax
+
+    def add_widget(self, signal, axes=None, widget=None):
+        if widget is None:
+            widget = ResizableDraggableRectangle(signal.axes_manager)
+            widget.color = 'green'
+        axes, ax = self._parse_axes(axes, widget.axes_manager, signal._plot)
+        if axes is not None:
+            widget.xaxis = axes[0]
+            widget.yaxis = axes[1]
+        with widget.events.suppress:
+            widget.set_bounds(left=self.left, bottom=self.bottom, 
+                              right=self.right, top=self.top)
+        if widget.ax is None:
+            widget.set_axes(ax)
+            
+        # Connect widget changes to on_widget_change
+        widget.events.changed.connect(self._on_widget_change)
+        self.widgets.add(widget)
 
     def __repr__(self):
         return "%s(top=%f, bottom=%f, left=%f, right=%f)" % (
