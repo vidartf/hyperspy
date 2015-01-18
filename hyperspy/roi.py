@@ -12,18 +12,18 @@ class BaseROI(t.HasTraits):
 class RectangularROI(BaseROI):
     top, bottom, left, right = (t.CFloat(t.Undefined),) * 4
 
-    def __init__(self, top, bottom, left, right):
+    def __init__(self, left, bottom, right, top):
         super(RectangularROI, self).__init__()
         self.top, self.bottom, self.left, self.right = top, bottom, left, right
 
     def _top_changed(self, old, new):
-        if self.bottom is not t.Undefined and new >= self.bottom:
+        if self.bottom is not t.Undefined and new <= self.bottom:
             self.top = old
         else:
             self.update()
 
     def _bottom_changed(self, old, new):
-        if self.top is not t.Undefined and new <= self.top:
+        if self.top is not t.Undefined and new >= self.top:
             self.bottom = old
         else:
             self.update()
@@ -46,11 +46,11 @@ class RectangularROI(BaseROI):
 
     def __call__(self, signal, out=None):
         if out is None:
-            roi = signal[self.left:self.right, self.top:self.bottom]
+            roi = signal[self.left:self.right, self.bottom:self.top]
             return roi
         else:
             signal.__getitem__((slice(self.left, self.right),
-                                slice(self.top, self.bottom)),
+                                slice(self.bottom, self.top)),
                                out=out)
 
     def __repr__(self):
