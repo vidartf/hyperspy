@@ -150,10 +150,10 @@ class RectangularROI(BaseROI):
                 raise ValueError("Neither space has two dimensions")
         return (x,y), ax
 
-    def add_widget(self, signal, axes=None, widget=None):
+    def add_widget(self, signal, axes=None, widget=None, color='green'):
         if widget is None:
             widget = ResizableDraggableRectangle(signal.axes_manager)
-            widget.color = 'green'
+            widget.color = color
         axes, ax = self._parse_axes(axes, widget.axes_manager, signal._plot)
         
         # Remove existing ROI, if it exsists and axes match
