@@ -257,13 +257,13 @@ class ResizableDraggableRectangle(ResizableDraggablePatchBase):
             return kwargs.values()[0]
         else:
             x = kwargs.pop('x', kwargs.pop('left', self._pos[0]))
-            y = kwargs.pop('y', kwargs.pop('bottom', self._pos[1]))
+            y = kwargs.pop('y', kwargs.pop('top', self._pos[1]))
             if kwargs.has_key('right'):
                 w = kwargs.pop('right') - x
             else:
                 w = kwargs.pop('w', kwargs.pop('width', self._xsize))
-            if kwargs.has_key('top'):
-                h = kwargs.pop('top') - y
+            if kwargs.has_key('bottom'):
+                h = kwargs.pop('bottom') - y
             else:
                 h = kwargs.pop('h', kwargs.pop('height', self._ysize)) 
             return x, y, w, h
@@ -306,19 +306,20 @@ class ResizableDraggableRectangle(ResizableDraggablePatchBase):
          * 'bounds': tuple (left, bottom, width, height)
          OR
          * 'x'/'left'
-         * 'y'/'bottom'
-         * 'w'/'width', alternatively 'right'
-         * 'h'/'height', alternatively 'top'
+         * 'y'/'top'
+         * 'w'/'width', alternatively 'right' (x+w)
+         * 'h'/'height', alternatively 'bottom' (y+h)
         If specifying with keywords, any unspecified dimensions will be kept
-        constant (note: width/height will be kept, not right/top).
+        constant (note: width/height will be kept, not right/bottom).
         """
 
         x, y, w, h = self._parse_bounds_args(args, kwargs)
-            
         ix = self.xaxis.value2index(x)
         iy = self.yaxis.value2index(y)
-        w = self.xaxis.value2index(x+w, rounding=np.floor) - ix
-        h = self.yaxis.value2index(y+h, rounding=np.floor) - iy
+        # Because when slicing entire array, slice stop == len(array)
+        # value2index() checks if index is < len(arary)
+        w = self.xaxis.value2index(x+w, rounding=lambda t: round(t)-1) + 1 - ix
+        h = self.yaxis.value2index(y+h, rounding=lambda t: round(t)-1) + 1 - iy
             
         self._suspend()
         self._pos = (ix, iy)
@@ -364,7 +365,8 @@ class ResizableDraggableRectangle(ResizableDraggablePatchBase):
         if value == self._xsize:
             return
         ix = self._pos[0] + value
-        if not (self.xaxis.low_index <= ix <= self.xaxis.high_index):
+        if value == 0 or \
+                not (self.xaxis.low_index <= ix <= self.xaxis.high_index):
             raise ValueError()
         self._set_xsize(value)
     
@@ -377,7 +379,8 @@ class ResizableDraggableRectangle(ResizableDraggablePatchBase):
         if value == self._ysize:
             return
         iy = self._pos[1] + value
-        if not (self.yaxis.low_index <= iy <= self.yaxis.high_index):
+        if value == 0 or \
+                not (self.yaxis.low_index <= iy <= self.yaxis.high_index):
             raise ValueError()
         self._set_ysize(value)
     
@@ -401,7 +404,7 @@ class ResizableDraggableRectangle(ResizableDraggablePatchBase):
             self._size_changed()
             
     def _set_xsize(self, xsize):
-        if self._xsize == xsize:
+        if self._xsize == xsize or xsize == 0:
             return
         self._xsize = xsize
         self._size = max(self._xsize, self._ysize)
@@ -416,7 +419,7 @@ class ResizableDraggableRectangle(ResizableDraggablePatchBase):
             self._set_xsize(self._xsize - 1)
 
     def _set_ysize(self, ysize):
-        if self._ysize == ysize:
+        if self._ysize == ysize or ysize == 0:
             return
         self._ysize = ysize
         self._size = max(self._xsize, self._ysize)
@@ -592,20 +595,28 @@ class ResizableDraggableRectangle(ResizableDraggablePatchBase):
         xaxis = self.xaxis
         yaxis = self.yaxis
         
+        # Make sure widget size is not larger than axes
+        self._xsize = min(self._xsize, xaxis.size)
+        self._ysize = min(self._ysize, yaxis.size)
+        self._size = min(self._size, max(xaxis.size, yaxis.size))
+        
+        # Make sure x1/y1 is within bounds
         if x1 is None:
-            x1 = self.get_position()[0]
+            x1 = self.get_position()[0] # Get it if not supplied
         elif x1 < xaxis.low_index:
             x1 = xaxis.low_index
         elif x1 > xaxis.high_index:
             x1 = xaxis.high_index
-           
+        
         if y1 is None:
             y1 = self.get_position()[1]
         elif y1 < yaxis.low_index:
             y1 = yaxis.low_index
         elif y1 > yaxis.high_index:
             y1 = yaxis.high_index
-            
+        
+        # Make sure x2/y2 is with upper bound.
+        # If not, keep dims, and change x1/y1!
         x2 = x1 + self._xsize
         y2 = y1 + self._ysize
         if x2 > xaxis.high_index + 1:

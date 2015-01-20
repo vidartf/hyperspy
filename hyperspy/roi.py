@@ -15,21 +15,21 @@ class BaseROI(t.HasTraits):
 class RectangularROI(BaseROI):
     top, bottom, left, right = (t.CFloat(t.Undefined),) * 4
 
-    def __init__(self, left, bottom, right, top):
+    def __init__(self, left, top, right, bottom):
         super(RectangularROI, self).__init__()
-        self.top, self.bottom, self.left, self.right = top, bottom, left, right
         self._bounds_check = True   # Use reponsibly!
+        self.top, self.bottom, self.left, self.right = top, bottom, left, right
 
     def _top_changed(self, old, new):
         if self._bounds_check and \
-                self.bottom is not t.Undefined and new <= self.bottom:
+                self.bottom is not t.Undefined and new >= self.bottom:
             self.top = old
         else:
             self.update()
 
     def _bottom_changed(self, old, new):
         if self._bounds_check and \
-                self.top is not t.Undefined and new >= self.top:
+                self.top is not t.Undefined and new <= self.top:
             self.bottom = old
         else:
             self.update()
@@ -73,7 +73,7 @@ class RectangularROI(BaseROI):
 
     def __call__(self, signal, out=None):
         if out is None:
-            roi = signal[self.left:self.right, self.bottom:self.top]
+            roi = signal[self.left:self.right, self.top:self.bottom]
             return roi
         else:
             signal.__getitem__((slice(self.left, self.right),
@@ -84,10 +84,10 @@ class RectangularROI(BaseROI):
         with self.events.suppress:
             self._bounds_check = False
             try:
-                self.left, self.bottom = widget.get_coordinates()
+                self.left, self.top = widget.get_coordinates()
                 w, h = widget._get_size_in_axes()
                 self.right = self.left + w
-                self.top = self.bottom + h
+                self.bottom = self.top + h
             finally:
                 self._bounds_check = True
         self._update_widgets(exclude=(widget,))
