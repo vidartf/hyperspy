@@ -1,9 +1,8 @@
 class Interactive:
-    def __init__(self, obj, f, event, *args, **kwargs):
+    def __init__(self, f, event, *args, **kwargs):
         self.f = f
         self.args = args
         self.kwargs = kwargs
-        self.sig = obj
         if kwargs.has_key('out'):
             self.f(*args, **kwargs)
             self.out = kwargs.pop('out')
@@ -15,7 +14,7 @@ class Interactive:
         self.f(out=self.out, *self.args, **self.kwargs)
 
 
-def interactive(obj, f, event, *args, **kwargs):
+def interactive(f, event, *args, **kwargs):
     """Update operation result when a given event is triggered.
 
     Parameters
@@ -34,5 +33,5 @@ def interactive(obj, f, event, *args, **kwargs):
 
     """
 
-    cls = Interactive(obj, f, event, *args, **kwargs)
+    cls = Interactive(f, event, *args, **kwargs)
     return cls.out

@@ -67,7 +67,7 @@ class RectangularROI(BaseROI):
             navigation_signal = signal
         if navigation_signal is not None:
             self.add_widget(navigation_signal)
-        return hyperspy.interactive.interactive(signal, self.__call__, 
+        return hyperspy.interactive.interactive(self.__call__, 
                                          event=self.events.roi_changed,
                                          signal=signal)
 
