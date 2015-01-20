@@ -10,6 +10,7 @@ class BaseROI(t.HasTraits):
         self.events = Events()
         self.events.roi_changed = Event()
         self.widgets = set()
+        self.signal_map = dict()
 
 
 class RectangularROI(BaseROI):
@@ -71,14 +72,37 @@ class RectangularROI(BaseROI):
                                          event=self.events.roi_changed,
                                          signal=signal)
 
-    def __call__(self, signal, out=None):
+    def _make_slices(self, axes_manager, axes, ranges):
+        """
+        Utility function to make a slice container that will slice the axes
+        in axes_manager. The axis in 'axes[i]' argument will be sliced with 
+        'ranges[i]', all other axes with 'slice(None)'.
+        """
+        slices = []
+        for ax in axes_manager._axes:
+            if ax in axes:
+                i = axes.index(ax)
+                ilow = ax.value2index(ranges[i][0])
+                ihigh = 1 + ax.value2index(ranges[i][1], rounding=lambda x: round(x-1))
+                slices.append(slice(ilow, ihigh))
+            else:
+                slices.append(slice(None))
+        return tuple(slices)        
+
+    def __call__(self, signal, out=None, axes=None):
+        if axes is None and self.signal_map.has_key(signal):
+            axes = self.signal_map[signal][1]
+        else:
+            axes = self._parse_axes(axes, signal.axes_manager, signal.plot)
+        
+        slices = self._make_slices(signal.axes_manager, axes, 
+                                       ((self.left, self.right), 
+                                        (self.top, self.bottom)))
         if out is None:
-            roi = signal[self.left:self.right, self.top:self.bottom]
+            roi = signal[slices]
             return roi
         else:
-            signal.__getitem__((slice(self.left, self.right),
-                                slice(self.bottom, self.top)),
-                               out=out)
+            signal.__getitem__(slices, out=out)
 
     def _on_widget_change(self, widget):
         with self.events.suppress:
@@ -131,6 +155,12 @@ class RectangularROI(BaseROI):
             widget = ResizableDraggableRectangle(signal.axes_manager)
             widget.color = 'green'
         axes, ax = self._parse_axes(axes, widget.axes_manager, signal._plot)
+        
+        # Remove existing ROI, if it exsists and axes match
+        if self.signal_map.has_key(signal) and \
+                self.signal_map[signal][1] == axes:
+            self.remove_widget(signal)
+        
         if axes is not None:
             widget.xaxis = axes[0]
             widget.yaxis = axes[1]
@@ -143,6 +173,14 @@ class RectangularROI(BaseROI):
         # Connect widget changes to on_widget_change
         widget.events.changed.connect(self._on_widget_change)
         self.widgets.add(widget)
+        self.signal_map[signal] = (widget, axes)
+        return widget
+        
+    def remove_widget(self, signal):
+        if self.signal_map.has_key(signal):
+            w = self.signal_map.pop(signal)[0]
+            w.events.changed.disconnect(self._on_widget_change)
+            w.set_on(False)
 
     def __repr__(self):
         return "%s(top=%f, bottom=%f, left=%f, right=%f)" % (
