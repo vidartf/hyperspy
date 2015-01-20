@@ -1,7 +1,10 @@
 import traits.api as t
 from hyperspy.events import Events, Event
 import hyperspy.interactive
+from hyperspy.axes import DataAxis
 from hyperspy.drawing.widgets import ResizableDraggableRectangle
+
+import numpy as np
 
 
 class BaseROI(t.HasTraits):
@@ -87,7 +90,87 @@ class RectangularROI(BaseROI):
                 slices.append(slice(ilow, ihigh))
             else:
                 slices.append(slice(None))
-        return tuple(slices)        
+        return tuple(slices)
+
+    def navigate(self, signal):
+        """
+        Make a widget for this ROI and use it as a navigator for signal.
+        """
+        # Check vald plot and navdim >= 2
+        if signal._plot is None or signal.axes_manager.navigation_dimension < 2:
+            raise ValueError("Cannot navigate this signal with %s" % \
+                             self.__class__.__name__, signal)
+
+        x = signal.axes_manager.navigation_axes[0]
+        y = signal.axes_manager.navigation_axes[1]
+        
+        def on_roi_change():
+            signal.axes_manager.disconnect(on_axis_change)
+            if x.value != self.left or y.value != self.top:
+                x.value = self.left
+                y.value = self.top
+            else:
+                # Right or top changed, update manually
+                signal._plot.signal_plot.update()
+            signal.axes_manager.connect(on_axis_change)
+            
+        def signal_function(axes_manager=None):
+            if axes_manager is None:
+                axes_manager = signal.axes_manager
+            slices = self._make_slices(axes_manager, (x, y), 
+                                       ((self.left, self.right), 
+                                        (self.top, self.bottom)))
+            ix, iy = axes_manager._axes.index(x), axes_manager._axes.index(y)
+            data = np.mean(signal.data.__getitem__(slices), (ix, iy))
+            return np.atleast_1d(data)
+
+        def on_axis_change(obj, name, old, new):
+            if obj not in signal.axes_manager.navigation_axes[0:2]:
+                return
+            new, old = obj.index2value(np.array((new, old)))
+            update = True
+            with self.events.suppress:
+                self._bounds_check = False
+                try:
+                    if obj == x:
+                        if self.right + new-old - (obj.high_value+obj.scale) < obj.scale/1000:
+                            self.left = new
+                            self.right += new-old
+                        else:
+                            update = False
+                            signal.axes_manager.disconnect(on_axis_change)
+                            obj.value = old
+                            signal.axes_manager.connect(on_axis_change)
+                    elif obj == y:
+                        if self.bottom + new-old - (obj.high_value+obj.scale) < obj.scale/1000:
+                            self.top = new
+                            self.bottom += new-old
+                        else:
+                            update = False
+                            signal.axes_manager.disconnect(on_axis_change)
+                            obj.value = old
+                            signal.axes_manager.connect(on_axis_change)
+                finally:
+                    self._bounds_check = True
+                if update:
+                    self._update_widgets()
+            if update:
+                self.events.roi_changed.disconnect(on_roi_change)
+                self.events.roi_changed.trigger()
+                self.events.roi_changed.connect(on_roi_change)
+
+        # TODO: On widget close, remove event connections!
+        signal._plot.signal_data_function = signal_function
+        signal._plot.signal_plot.update()
+        self.events.roi_changed.connect(on_roi_change)
+        x.connect(on_axis_change, trait='index')
+        y.connect(on_axis_change, trait='index')
+        w = self.add_widget(signal, axes=(x,y), color='red')
+        if signal._plot.pointer is not None:
+            signal._plot.pointer.set_on(False)
+            signal._plot.pointer.disconnect(signal._plot.navigator_plot.ax)
+        signal._plot.pointer = w
+        return w
 
     def __call__(self, signal, out=None, axes=None):
         if axes is None and self.signal_map.has_key(signal):
@@ -129,8 +212,14 @@ class RectangularROI(BaseROI):
                 x = axes_manager.signal_axes[0]
                 y = axes_manager.signal_axes[1]
         elif isinstance(axes, tuple):
-            x = axes_manager[axes[0]]
-            y = axes_manager[axes[1]]
+            if isinstance(axes[0], DataAxis):
+                x = axes[0]
+            else:
+                x = axes_manager[axes[0]]
+            if isinstance(axes[1], DataAxis):
+                y = axes[1]
+            else:
+                y = axes_manager[axes[1]]
             if x.navigate != y.navigate:
                 raise ValueError("Axes need to be in same space")
             if x.navigate:
