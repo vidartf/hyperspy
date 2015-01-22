@@ -68,14 +68,19 @@ class RectangularROI(BaseROI):
                 w.set_bounds(left=self.left, bottom=self.bottom, 
                              right=self.right, top=self.top)
 
-    def interactive(self, signal, navigation_signal="same"):
+    def interactive(self, signal, navigation_signal="same", out=None):
         if navigation_signal == "same":
             navigation_signal = signal
         if navigation_signal is not None:
             self.add_widget(navigation_signal)
-        return hyperspy.interactive.interactive(self.__call__, 
+        if out is None:
+            return hyperspy.interactive.interactive(self.__call__, 
                                          event=self.events.roi_changed,
                                          signal=signal)
+        else:
+            return hyperspy.interactive.interactive(self.__call__, 
+                                         event=self.events.roi_changed,
+                                         signal=signal, out=out)
 
     def _make_slices(self, axes_manager, axes, ranges):
         """
