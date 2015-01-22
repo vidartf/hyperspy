@@ -80,5 +80,3 @@ class TestEventsSuppression:
         self.trigger_check(self.events.a.trigger, False)
         self.trigger_check(self.events.b.trigger, True)
         self.trigger_check(self.events.c.trigger, True)
-        
-        

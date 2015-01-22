@@ -99,44 +99,6 @@ class RectangularROI(BaseROI):
                 slices.append(slice(None))
         return tuple(slices)
 
-    def navigate(self, signal):
-        """
-        Make a widget for this ROI and use it as a navigator for signal.
-        """
-        # Check vald plot and navdim >= 2
-        if signal._plot is None or signal.axes_manager.navigation_dimension < 2:
-            raise ValueError("Cannot navigate this signal with %s" % \
-                             self.__class__.__name__, signal)
-
-        x = signal.axes_manager.navigation_axes[0]
-        y = signal.axes_manager.navigation_axes[1]
-
-        def nav_signal_function(axes_manager=None):
-            if axes_manager is None:
-                axes_manager = signal.axes_manager
-            slices = self._make_slices(axes_manager, (x, y), 
-                                       ((self.left, self.right), 
-                                        (self.top, self.bottom)))
-            ix, iy = axes_manager._axes.index(x), axes_manager._axes.index(y)
-            data = np.mean(signal.data.__getitem__(slices), (ix, iy))
-            return np.atleast_1d(data)
-            
-        signal._plot.signal_data_function = nav_signal_function
-        sp = signal._plot.signal_plot
-        sp.update()
-        w = self.add_widget(signal, axes=(x,y), color='red')
-        w.connect_navigate()
-        # This will cause double updates, as it also triggers on DataAxix.index
-        # change, but then the coordinates might not be updated (depends on 
-        # trait notification order).
-        # TODO: Use DataAxis.slice / signal.__call__ instead
-        self.events.roi_changed.connect(lambda x: \
-                                            signal._plot.signal_plot.update())
-        if signal._plot.pointer is not None:
-            signal._plot.pointer.close()
-        signal._plot.pointer = w
-        return w
-
     def __call__(self, signal, out=None, axes=None):
         if axes is None and self.signal_map.has_key(signal):
             axes = self.signal_map[signal][1]
