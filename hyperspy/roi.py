@@ -84,7 +84,7 @@ class RectangularROI(BaseROI):
         'ranges[i]', all other axes with 'slice(None)'.
         """
         slices = []
-        for ax in axes_manager._axes:
+        for ax in axes_manager._get_axes_in_natural_order():
             if ax in axes:
                 i = axes.index(ax)
                 ilow = ax.value2index(ranges[i][0])
@@ -136,7 +136,7 @@ class RectangularROI(BaseROI):
         if axes is None and self.signal_map.has_key(signal):
             axes = self.signal_map[signal][1]
         else:
-            axes = self._parse_axes(axes, signal.axes_manager, signal.plot)
+            axes = self._parse_axes(axes, signal.axes_manager, signal._plot)
         
         slices = self._make_slices(signal.axes_manager, axes, 
                                        ((self.left, self.right), 
