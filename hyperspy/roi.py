@@ -3,10 +3,6 @@ from hyperspy.events import Events, Event
 import hyperspy.interactive
 from hyperspy.axes import DataAxis
 from hyperspy.drawing.widgets import ResizableDraggableRectangle
-from hyperspy.drawing.image import ImagePlot
-from hyperspy.drawing.spectrum import SpectrumFigure
-
-import numpy as np
 
 
 class BaseROI(t.HasTraits):
@@ -178,13 +174,13 @@ class RectangularROI(BaseROI):
             self.remove_widget(signal)
         
         if axes is not None:
-            widget.xaxis = axes[0]
-            widget.yaxis = axes[1]
+            # Set DataAxes
+            widget.axes = axes
         with widget.events.suppress:
             widget.set_bounds(left=self.left, bottom=self.bottom, 
                               right=self.right, top=self.top)
         if widget.ax is None:
-            widget.set_axes(ax)
+            widget.set_axis(ax)
             
         # Connect widget changes to on_widget_change
         widget.events.changed.connect(self._on_widget_change)
