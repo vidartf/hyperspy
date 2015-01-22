@@ -83,7 +83,7 @@ class MPL_HyperExplorer(object):
             # Add the line to the figure
             sf.add_line(sl)
             sf.plot()
-            self.pointer.set_axes(sf.ax)
+            self.pointer.set_axis(sf.ax)
             if self.axes_manager.navigation_dimension > 1:
                 navigation_sliders(
                     self.axes_manager.navigation_axes,
@@ -110,7 +110,7 @@ class MPL_HyperExplorer(object):
 
             imf.title = self.signal_title + ' Navigator'
             imf.plot()
-            self.pointer.set_axes(imf.ax)
+            self.pointer.set_axis(imf.ax)
             self.navigator_plot = imf
 
     def close_navigator_plot(self):
