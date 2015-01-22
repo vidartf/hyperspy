@@ -44,9 +44,6 @@ class MPL_HyperExplorer(object):
         # This method should be implemented by the subclasses.
         # Doing nothing is good enough for signal_dimension==0 though.
         return
-        
-    def lazy_signal_data_function(self, *args, **kwargs):
-        return self.signal_data_function(*args, **kwargs)
 
     def plot_navigator(self):
         if self.axes_manager.navigation_dimension == 0:
