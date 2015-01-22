@@ -4,6 +4,8 @@ import hyperspy.interactive
 from hyperspy.axes import DataAxis
 from hyperspy.drawing.widgets import ResizableDraggableRectangle
 
+import numpy as np
+
 
 class BaseROI(t.HasTraits):
     def __init__(self):
@@ -78,14 +80,14 @@ class RectangularROI(BaseROI):
                                          event=self.events.roi_changed,
                                          signal=signal, out=out)
 
-    def _make_slices(self, axes_manager, axes, ranges):
+    def _make_slices(self, axes_collecion, axes, ranges):
         """
         Utility function to make a slice container that will slice the axes
         in axes_manager. The axis in 'axes[i]' argument will be sliced with 
         'ranges[i]', all other axes with 'slice(None)'.
         """
         slices = []
-        for ax in axes_manager._get_axes_in_natural_order():
+        for ax in axes_collecion:
             if ax in axes:
                 i = axes.index(ax)
                 ilow = ax.value2index(ranges[i][0])
@@ -110,24 +112,19 @@ class RectangularROI(BaseROI):
         def nav_signal_function(axes_manager=None):
             if axes_manager is None:
                 axes_manager = signal.axes_manager
-            slices = self._make_slices(axes_manager, (x, y), 
+            slices = self._make_slices(axes_manager._axes, (x, y), 
                                        ((self.left, self.right), 
                                         (self.top, self.bottom)))
             ix, iy = axes_manager._axes.index(x), axes_manager._axes.index(y)
             data = np.mean(signal.data.__getitem__(slices), (ix, iy))
             return np.atleast_1d(data)
-            
-        signal._plot.signal_data_function = nav_signal_function
+        
+        signal.signal_callback = nav_signal_function
         sp = signal._plot.signal_plot
         sp.update()
         w = self.add_widget(signal, axes=(x,y), color='red')
+        w.events.resized.connect(lambda x=None: sp.update())
         w.connect_navigate()
-        # This will cause double updates, as it also triggers on DataAxix.index
-        # change, but then the coordinates might not be updated (depends on 
-        # trait notification order).
-        # TODO: Use DataAxis.slice / signal.__call__ instead
-        self.events.roi_changed.connect(lambda x: \
-                                            signal._plot.signal_plot.update())
         if signal._plot.pointer is not None:
             signal._plot.pointer.close()
         signal._plot.pointer = w
@@ -139,9 +136,9 @@ class RectangularROI(BaseROI):
         else:
             axes = self._parse_axes(axes, signal.axes_manager, signal._plot)
         
-        slices = self._make_slices(signal.axes_manager, axes, 
-                                       ((self.left, self.right), 
-                                        (self.top, self.bottom)))
+        natax = signal.axes_manager._get_axes_in_natural_order()
+        slices = self._make_slices(natax, axes, ((self.left, self.right), 
+                                                 (self.top, self.bottom)))
         if out is None:
             roi = signal[slices]
             return roi
