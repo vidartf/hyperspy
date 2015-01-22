@@ -44,6 +44,9 @@ class MPL_HyperExplorer(object):
         # This method should be implemented by the subclasses.
         # Doing nothing is good enough for signal_dimension==0 though.
         return
+        
+    def lazy_signal_data_function(self, *args, **kwargs):
+        return self.signal_data_function(*args, **kwargs)
 
     def plot_navigator(self):
         if self.axes_manager.navigation_dimension == 0:
@@ -80,7 +83,7 @@ class MPL_HyperExplorer(object):
             # Add the line to the figure
             sf.add_line(sl)
             sf.plot()
-            self.pointer.add_axes(sf.ax)
+            self.pointer.set_axes(sf.ax)
             if self.axes_manager.navigation_dimension > 1:
                 navigation_sliders(
                     self.axes_manager.navigation_axes,
@@ -107,7 +110,7 @@ class MPL_HyperExplorer(object):
 
             imf.title = self.signal_title + ' Navigator'
             imf.plot()
-            self.pointer.add_axes(imf.ax)
+            self.pointer.set_axes(imf.ax)
             self.navigator_plot = imf
 
     def close_navigator_plot(self):
@@ -123,6 +126,7 @@ class MPL_HyperExplorer(object):
             if pointer is not None:
                 self.pointer = pointer(self.axes_manager)
                 self.pointer.color = 'red'
+                self.pointer.connect_navigate()
             self.plot_navigator()
         self.plot_signal()
 
@@ -136,7 +140,7 @@ class MPL_HyperExplorer(object):
 
         if nav_dim == 2:  # It is an image
             if self.axes_manager.navigation_dimension > 1:
-                Pointer = widgets.ResizebleDraggableRectangle
+                Pointer = widgets.DraggableSquare
             else:  # It is the image of a "spectrum stack"
                 Pointer = widgets.DraggableHorizontalLine
         elif nav_dim == 1:  # It is a spectrum

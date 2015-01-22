@@ -94,7 +94,7 @@ class MPL_HyperSpectrum_Explorer(MPL_HyperExplorer):
         # Create a line to the left axis with the default indices
         sl = spectrum.SpectrumLine()
         sl.autoscale = True
-        sl.data_function = self.signal_data_function
+        sl.data_function = self.lazy_signal_data_function
         sl.plot_indices = True
         if self.pointer is not None:
             color = self.pointer.color

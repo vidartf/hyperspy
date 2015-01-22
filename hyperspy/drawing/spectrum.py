@@ -25,6 +25,7 @@ from hyperspy import messages
 from hyperspy.drawing.figure import BlittedFigure
 from hyperspy.drawing import utils
 
+
 class SpectrumFigure(BlittedFigure):
 
     """
@@ -37,7 +38,6 @@ class SpectrumFigure(BlittedFigure):
         self.right_zero_lock = False
         self.ax_lines = list()
         self.right_ax_lines = list()
-        self.lines = list()
         self.axes_manager = None
         self.right_axes_manager = None
 

@@ -252,7 +252,7 @@ class DataAxis(t.HasTraits):
     def _update_slice(self, value):
         if value is False:
             self.slice = slice(None)
-        elif value is True:
+        else:
             self.slice = None
         if not hasattr(value, '__getitem__'):
             pass
@@ -651,29 +651,24 @@ class AxesManager(t.HasTraits):
 
     def _update_attributes(self):
         getitem_tuple = ()
-        getitem_tuple_nav_sliced = ()
+        values = []
         self.signal_axes = ()
         self.navigation_axes = ()
         for axis in self._axes:
             # Until we find a better place, take property of the axes
             # here to avoid difficult to debug bugs.
             axis.axes_manager = self
-            if axis.navigate:
-                self.navigation_axes += axis,
-                getitem_tuple += axis.index,
-            else:
-                self.signal_axes += axis,
-                getitem_tuple += axis.slice,
-                
             if axis.slice is None:
-                getitem_tuple_nav_sliced += axis.index,
+                getitem_tuple += axis.index,
+                values.append(axis.value)
+                self.navigation_axes += axis,
             else:
-                getitem_tuple_nav_sliced += axis.slice,
+                getitem_tuple += axis.slice,
+                self.signal_axes += axis,
 
         self.signal_axes = self.signal_axes[::-1]
         self.navigation_axes = self.navigation_axes[::-1]
         self._getitem_tuple = getitem_tuple
-        self._getitem_tuple_nav_sliced = getitem_tuple_nav_sliced
         self.signal_dimension = len(self.signal_axes)
         self.navigation_dimension = len(self.navigation_axes)
         if self.navigation_dimension != 0:
@@ -724,13 +719,13 @@ class AxesManager(t.HasTraits):
 
     def connect(self, f):
         for axis in self._axes:
-            if axis.navigate:
-                axis.on_trait_change(f, ['index', 'slice'])
+            if axis.slice is None:
+                axis.on_trait_change(f, 'index')
 
     def disconnect(self, f):
         for axis in self._axes:
-            if axis.navigate:
-                axis.on_trait_change(f, ['index', 'slice'], remove=True)
+            if axis.slice is None:
+                axis.on_trait_change(f, 'index', remove=True)
 
     def key_navigator(self, event):
         if len(self.navigation_axes) not in (1, 2):
