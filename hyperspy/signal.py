@@ -3606,6 +3606,8 @@ class Signal(MVA,
 
     def _apply_function_on_data_and_remove_axis(self, function, axis,
                                                 out=None):
+        if out is not None:
+            oldshape = out.data.shape
         if axis not in ("navigation", "signal"):
             if out is None:
                 s = self._deepcopy_with_new_data(None)
@@ -3643,6 +3645,8 @@ class Signal(MVA,
         if out is None:
             return s
         else:
+            if oldshape != out.data.shape:
+                out.get_dimensions_from_data()
             out.events.data_changed.trigger()
 
     def sum(self, axis="navigation", out=None):
