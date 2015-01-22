@@ -3619,6 +3619,9 @@ class Signal(MVA,
                 s._remove_axis(axis)
                 return s
             else:
+                if oldshape != out.data.shape:
+                    out.get_dimensions_from_data()
+                out.events.data_changed.trigger()
                 return
 
         if axis == "navigation":
