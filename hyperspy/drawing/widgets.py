@@ -991,6 +991,8 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
         self.patch = ModifiableSpanSelector(ax)
         self.patch.set_initial(self._get_range())
         self.patch.events.changed.connect(self._patch_changed)
+        self.patch.step_ax = self.axes[0]
+        self.patch.tolerance = 5
     
     def _patch_changed(self, patch):
         r = self._get_range()
@@ -1008,6 +1010,7 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
     def _get_range(self):
         c = self.get_coordinates()[0]
         w = self._get_size_in_axes()[0]
+        c -= w / (2.0 * self._size[0])
         return (c, c + w)
         
     def _parse_bounds_args(self, args, kwargs):
@@ -1098,6 +1101,7 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         self.tolerance = 1
         self.on_move_cid = None
         self._range = None
+        self.step_ax = None
         self.events = Events()
         self.events.changed = Event()
         self.events.moved = Event()
@@ -1197,11 +1201,22 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
     def move_left(self, event):
         if self.buttonDown is False or self.ignore(event):
             return
+        x = event.xdata
         # Do not move the left edge beyond the right one.
-        if event.xdata >= self._range[1]:
+        if x >= self._range[1]:
             return
-        width_increment = self._range[0] - event.xdata
-        self.rect.set_x(event.xdata)
+        if self.step_ax is not None:
+            if x < self.step_ax.low_value - self.step_ax.scale:
+                return
+            rem = (x - self.step_ax.offset - 0.5*self.step_ax.scale) \
+                    % self.step_ax.scale
+            if rem/self.step_ax.scale < 0.5:
+                rem = -rem
+            else:
+                rem = self.step_ax.scale-rem
+            x += rem
+        width_increment = self._range[0] - x
+        self.rect.set_x(x)
         self.rect.set_width(self.rect.get_width() + width_increment)
         self.update_range()
         self.events.moved.trigger(self)
@@ -1214,11 +1229,21 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
     def move_right(self, event):
         if self.buttonDown is False or self.ignore(event):
             return
+        x = event.xdata
         # Do not move the right edge beyond the left one.
-        if event.xdata <= self._range[0]:
+        if x <= self._range[0]:
             return
-        width_increment = \
-            event.xdata - self._range[1]
+        if self.step_ax is not None:
+            if x > self.step_ax.high_value + self.step_ax.scale:
+                return
+            rem = (x - self.step_ax.offset + 0.5*self.step_ax.scale) \
+                    % self.step_ax.scale
+            if rem/self.step_ax.scale < 0.5:
+                rem = -rem
+            else:
+                rem = self.step_ax.scale-rem
+            x += rem
+        width_increment = x - self._range[1]
         self.rect.set_width(self.rect.get_width() + width_increment)
         self.update_range()
         self.events.resized.trigger(self)
@@ -1231,9 +1256,16 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         if self.buttonDown is False or self.ignore(event):
             return
         x_increment = event.xdata - self.pressv
+        if self.step_ax is not None:
+            rem = x_increment % self.step_ax.scale
+            if rem/self.step_ax.scale < 0.5:
+                rem = -rem
+            else:
+                rem = self.step_ax.scale-rem
+            x_increment += rem
         self.rect.set_x(self.rect.get_x() + x_increment)
         self.update_range()
-        self.pressv = event.xdata
+        self.pressv += x_increment
         self.events.moved.trigger(self)
         self.events.changed.trigger(self)
         if self.onmove_callback is not None:
