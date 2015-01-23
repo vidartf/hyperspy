@@ -64,7 +64,7 @@ class BaseROI(t.HasTraits):
             for i in xrange(ndim):
                 ranges.append((self.coords[i], self.coords[ndim+i]))
         slices = []
-        for ax in axes_manager._get_axes_in_natural_order():
+        for ax in axes_collecion:
             if ax in axes:
                 i = axes.index(ax)
                 ilow = ax.value2index(ranges[i][0])
