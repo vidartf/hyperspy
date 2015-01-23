@@ -71,13 +71,12 @@ class InteractivePatchBase(object):
                     if self.patch in container:
                         container.remove(self.patch)
                 self.disconnect(self.ax)
+                self.ax = None
             self.__is_on = value
             try:
                 self.ax.figure.canvas.draw()
             except:  # figure does not exist
                 pass
-            else:
-                self.ax = None
 
     def _set_patch(self):
         pass
@@ -168,7 +167,8 @@ class DraggablePatchBase(InteractivePatchBase):
             self._pos = np.array(value)
             self._pos_changed()
 
-    position = property(_get_position, _set_position)
+    position = property(lambda s: s._get_position(), \
+                        lambda s,v: s._set_position(v))
         
     def _pos_changed(self):
         if self._navigating:
@@ -249,7 +249,7 @@ class ResizableDraggablePatchBase(DraggablePatchBase):
             self._size = value
             self._size_changed()
     
-    size = property(_get_size, _set_size)
+    size = property(lambda s: s._get_size(), lambda s,v: s._set_size(v))
 
     def increase_size(self):
         self._set_size(self._size + 1)
@@ -419,14 +419,14 @@ class ResizableDraggableRectangle(Patch2DBase):
         """
         Set bounds by indices. Bounds can either be specified in order left,
         bottom, width, height; or by keywords:
-         * 'bounds': tuple (left, bottom, width, height)
+         * 'bounds': tuple (left, top, width, height)
          OR
          * 'x'/'left'
-         * 'y'/'bottom'
+         * 'y'/'top'
          * 'w'/'width', alternatively 'right'
-         * 'h'/'height', alternatively 'top'
+         * 'h'/'height', alternatively 'bottom'
         If specifying with keywords, any unspecified dimensions will be kept
-        constant (note: width/height will be kept, not right/top).
+        constant (note: width/height will be kept, not right/bottom).
         """
 
         x, y, w, h = self._parse_bounds_args(args, kwargs)
@@ -449,7 +449,7 @@ class ResizableDraggableRectangle(Patch2DBase):
         """
         Set bounds by values. Bounds can either be specified in order left,
         bottom, width, height; or by keywords:
-         * 'bounds': tuple (left, bottom, width, height)
+         * 'bounds': tuple (left, top, width, height)
          OR
          * 'x'/'left'
          * 'y'/'top'
@@ -977,15 +977,182 @@ def in_interval(number, interval):
         return False
 
 
+class DraggableResizableRange(ResizableDraggablePatchBase):
+
+    def set_on(self, value):
+        if value is not self.is_on() and self.ax is not None:
+            if value is True:
+                self._add_patch_to(self.ax)
+                self.connect(self.ax)
+            elif value is False:
+                self.disconnect(self.ax)
+                self.ax = None
+            self.__is_on = value
+            try:
+                self.ax.figure.canvas.draw()
+            except:  # figure does not exist
+                pass
+
+    def _add_patch_to(self, ax):
+        self.patch = ModifiableSpanSelector(ax)
+        self.patch.set_initial(self._get_range())
+        self.patch.events.changed.connect(self._patch_changed)
+    
+    def _patch_changed(self, patch):
+        r = self._get_range()
+        pr = patch.range
+        if r != pr:
+            dx = self._get_size_in_axes() / self._size
+            ix = self._v2i(self.axes[0], pr[0] + 0.5*dx)
+            w = self._v2i(self.axes[0], pr[1] + 0.5*dx) - ix
+            self._suspend()
+            self._pos = np.array([ix])
+            self._size = np.array([w])
+            self._resume()
+            
+                                        
+    def _get_range(self):
+        c = self.get_coordinates()[0]
+        w = self._get_size_in_axes()[0]
+        return (c, c + w)
+        
+    def _parse_bounds_args(self, args, kwargs):
+        if len(args) == 1:
+            return args[0]
+        elif len(args) == 4:
+           return args
+        elif len(kwargs) == 1 and kwargs.has_key('bounds'):
+            return kwargs.values()[0]
+        else:
+            x = kwargs.pop('x', kwargs.pop('left', self._pos[0]))
+            if kwargs.has_key('right'):
+                w = kwargs.pop('right') - x
+            else:
+                w = kwargs.pop('w', kwargs.pop('width', self._size[0]))
+            return x, w
+            
+    def set_ibounds(self, *args, **kwargs):
+        """
+        Set bounds by indices. Bounds can either be specified in order left,
+        bottom, width, height; or by keywords:
+         * 'bounds': tuple (left, width)
+         OR
+         * 'x'/'left'
+         * 'w'/'width', alternatively 'right'
+        If specifying with keywords, any unspecified dimensions will be kept
+        constant (note: width will be kept, not right).
+        """
+
+        x, w = self._parse_bounds_args(args, kwargs)
+            
+        if not (self.axes[0].low_index <= x <= self.axes[0].high_index):
+            raise ValueError()
+        if not (self.axes[0].low_index <= x+w <= self.axes[0].high_index):
+            raise ValueError()
+            
+        self._suspend()
+        self._pos = np.array([x])
+        self._size = np.array([w])
+        self._resume()
+        
+    def set_bounds(self, *args, **kwargs):
+        """
+        Set bounds by values. Bounds can either be specified in order left,
+        bottom, width, height; or by keywords:
+         * 'bounds': tuple (left, width)
+         OR
+         * 'x'/'left'
+         * 'w'/'width', alternatively 'right' (x+w)
+        If specifying with keywords, any unspecified dimensions will be kept
+        constant (note: width will be kept, not right).
+        """
+
+        x, w = self._parse_bounds_args(args, kwargs)
+        ix = self.axes[0].value2index(x)
+        w = self._v2i(self.axes[0], x+w) - ix
+            
+        self._suspend()
+        self._pos = np.array([ix])
+        self._size = np.array([w])
+        self._resume()
+
+    def _update_patch_position(self):
+        self._update_patch_geometry()
+
+    def _update_patch_size(self):
+        self._update_patch_geometry()
+
+    def _update_patch_geometry(self):
+        if self.is_on() and self.patch is not None:
+            self.patch.range = self._get_range()
+        
+
+    def disconnect(self, ax):
+        super(DraggableResizableRange, self).disconnect(ax)
+        if self.patch and self.ax == ax:
+            self.patch.turn_off()
+            self.patch = None
+    
+
 class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
 
     def __init__(self, ax, **kwargs):
+        onsel = kwargs.pop('onselect', self.dummy)
         matplotlib.widgets.SpanSelector.__init__(
-            self, ax, direction='horizontal', useblit=False, **kwargs)
+            self, ax, onsel, direction='horizontal', useblit=False, **kwargs)
         # The tolerance in points to pick the rectangle sizes
         self.tolerance = 1
         self.on_move_cid = None
-        self.range = None
+        self._range = None
+        self.events = Events()
+        self.events.changed = Event()
+        self.events.moved = Event()
+        self.events.resized = Event()
+        
+    def dummy(self, *args, **kwargs):
+        pass
+    
+    def _get_range(self):
+        self.update_range()
+        return self._range
+        
+    def _set_range(self, value):
+        self.update_range()
+        if self._range != value:
+            resized = (self._range[1] - self._range[0]) != (value[1] - value[0])
+            moved = self._range[0] != value[0]
+            self._range = value
+            if moved:
+                self.rect.set_x(value[0])
+                self.events.moved.trigger(self)
+            if resized:
+                self.rect.set_width(value[1] - value[0])
+                self.events.resized.trigger(self)
+            if moved or resized:
+                self.update()
+                self.events.changed.trigger(self)
+                
+    range = property(_get_range, _set_range)
+    
+    def set_initial(self, initial_range=None):
+        """
+        Remove selection events, set the spanner, and go to modify mode.
+        """
+        if initial_range is not None:
+            self.range = initial_range
+            
+        for cid in self.cids:
+            self.canvas.mpl_disconnect(cid)
+        # And connect to the new ones
+        self.cids.append(
+            self.canvas.mpl_connect('button_press_event', self.mm_on_press))
+        self.cids.append(
+            self.canvas.mpl_connect('button_release_event', self.mm_on_release))
+        self.cids.append(
+            self.canvas.mpl_connect('draw_event', self.update_background))
+        self.rect.set_visible(True)
+        self.update()
+        
 
     def release(self, event):
         """When the button is realeased, the span stays in the screen and the
@@ -995,17 +1162,7 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         self.buttonDown = False
         self.update_range()
         self.onselect()
-        # We first disconnect the previous signals
-        for cid in self.cids:
-            self.canvas.mpl_disconnect(cid)
-
-        # And connect to the new ones
-        self.cids.append(
-            self.canvas.mpl_connect('button_press_event', self.mm_on_press))
-        self.cids.append(
-            self.canvas.mpl_connect('button_release_event', self.mm_on_release))
-        self.cids.append(
-            self.canvas.mpl_connect('draw_event', self.update_background))
+        self.set_initial()
 
     def mm_on_press(self, event):
         if (self.ignore(event) and not self.buttonDown):
@@ -1018,11 +1175,10 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
                     invtrans.transform((0, 0)))[0])
 
         # Determine the size of the regions for moving and stretching
-        rect = self.rect
-        self.range = rect.get_x(), rect.get_x() + rect.get_width()
-        left_region = self.range[0] - x_pt, self.range[0] + x_pt
-        right_region = self.range[1] - x_pt, self.range[1] + x_pt
-        middle_region = self.range[0] + x_pt, self.range[1] - x_pt
+        self.update_range()
+        left_region = self._range[0] - x_pt, self._range[0] + x_pt
+        right_region = self._range[1] - x_pt, self._range[1] + x_pt
+        middle_region = self._range[0] + x_pt, self._range[1] - x_pt
 
         if in_interval(event.xdata, left_region) is True:
             self.on_move_cid = \
@@ -1041,35 +1197,40 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
             return
 
     def update_range(self):
-        self.range = (self.rect.get_x(),
+        self._range = (self.rect.get_x(),
                       self.rect.get_x() + self.rect.get_width())
 
     def move_left(self, event):
         if self.buttonDown is False or self.ignore(event):
             return
         # Do not move the left edge beyond the right one.
-        if event.xdata >= self.range[1]:
+        if event.xdata >= self._range[1]:
             return
-        width_increment = self.range[0] - event.xdata
+        width_increment = self._range[0] - event.xdata
         self.rect.set_x(event.xdata)
         self.rect.set_width(self.rect.get_width() + width_increment)
         self.update_range()
+        self.events.moved.trigger(self)
+        self.events.resized.trigger(self)
+        self.events.changed.trigger(self)
         if self.onmove_callback is not None:
-            self.onmove_callback(*self.range)
+            self.onmove_callback(*self._range)
         self.update()
 
     def move_right(self, event):
         if self.buttonDown is False or self.ignore(event):
             return
         # Do not move the right edge beyond the left one.
-        if event.xdata <= self.range[0]:
+        if event.xdata <= self._range[0]:
             return
         width_increment = \
-            event.xdata - self.range[1]
+            event.xdata - self._range[1]
         self.rect.set_width(self.rect.get_width() + width_increment)
         self.update_range()
+        self.events.resized.trigger(self)
+        self.events.changed.trigger(self)
         if self.onmove_callback is not None:
-            self.onmove_callback(*self.range)
+            self.onmove_callback(*self._range)
         self.update()
 
     def move_rect(self, event):
@@ -1079,8 +1240,10 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         self.rect.set_x(self.rect.get_x() + x_increment)
         self.update_range()
         self.pressv = event.xdata
+        self.events.moved.trigger(self)
+        self.events.changed.trigger(self)
         if self.onmove_callback is not None:
-            self.onmove_callback(*self.range)
+            self.onmove_callback(*self._range)
         self.update()
 
     def mm_on_release(self, event):
