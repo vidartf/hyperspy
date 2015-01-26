@@ -436,9 +436,8 @@ class ResizableDraggableRectangle(Patch2DBase):
             raise ValueError()
 
         old_position, old_size = self.position, self.size
-        with self.events.suppress:
-            self._pos = np.array([x, y])
-            self._size = np.array([w, h])
+        self._pos = np.array([x, y])
+        self._size = np.array([w, h])
         self._apply_changes(old_size=old_size, old_position=old_position)
     def set_bounds(self, *args, **kwargs):
         """
@@ -461,9 +460,8 @@ class ResizableDraggableRectangle(Patch2DBase):
         h = self._v2i(self.axes[1], y+h) - iy
             
         old_position, old_size = self.position, self.size
-        with self.events.suppress:
-            self._pos = np.array([ix, iy])
-            self._size = np.array([w, h])
+        self._pos = np.array([ix, iy])
+        self._size = np.array([w, h])
         self._apply_changes(old_size=old_size, old_position=old_position)
         
     def _validate_pos(self, value):
@@ -718,58 +716,56 @@ class ResizableDraggableRectangle(Patch2DBase):
             ibounds = [p[0], p[1], p[0] + self._size[0], p[1] + self._size[1]]
 
             old_position, old_size = self.position, self.size
-            with self.events.suppress:
-                if self.pick_on_frame is not False:
-                    posx = None
-                    posy = None
-                    corner = self.pick_on_frame
-                    if corner % 2 == 0: # Left side start
-                        if ix > ibounds[2]:    # flipped to right
-                            posx = ibounds[2]
-                            self._size[0] = ix - ibounds[2]
-                            self.pick_on_frame += 1
-                        elif ix == ibounds[2]:
-                            posx = ix - 1
-                            self._size[0] = ibounds[2] - posx
-                        else:
-                            posx = ix
-                            self._size[0] = ibounds[2] - posx
-                    else:   # Right side start
-                        if ix < ibounds[0]:  # Flipped to left
-                            posx = ix
-                            self._size[0] = ibounds[0] - posx
-                            self.pick_on_frame -= 1
-                        else:
-                            self._size[0] = ix - ibounds[0]
-                    if corner // 2 == 0: # Top side start
-                        if iy > ibounds[3]:    # flipped to botton
-                            posy = ibounds[3]
-                            self._size[1] = iy - ibounds[3]
-                            self.pick_on_frame += 2
-                        elif iy == ibounds[3]:
-                            posy = iy - 1
-                            self._size[1] = ibounds[3] - posy
-                        else:
-                            posy = iy
-                            self._size[1] = ibounds[3] - iy
-                    else:   # Bottom side start
-                        if iy < ibounds[1]:  # Flipped to top
-                            posy = iy
-                            self._size[1] = ibounds[1] - iy
-                            self.pick_on_frame -= 2
-                        else:
-                            self._size[1] = iy - ibounds[1]
-                    if self._size[0] < 1:
-                        self._size[0] = 1
-                    if self._size[1] < 1:
-                        self._size[1] = 1
-                    self._validate_geometry(posx, posy)
-                else:
-                    ix -= self.pick_offset[0]
-                    iy -= self.pick_offset[1]
-                    self._validate_geometry(ix, iy)
+            if self.pick_on_frame is not False:
+                posx = None
+                posy = None
+                corner = self.pick_on_frame
+                if corner % 2 == 0: # Left side start
+                    if ix > ibounds[2]:    # flipped to right
+                        posx = ibounds[2]
+                        self._size[0] = ix - ibounds[2]
+                        self.pick_on_frame += 1
+                    elif ix == ibounds[2]:
+                        posx = ix - 1
+                        self._size[0] = ibounds[2] - posx
+                    else:
+                        posx = ix
+                        self._size[0] = ibounds[2] - posx
+                else:   # Right side start
+                    if ix < ibounds[0]:  # Flipped to left
+                        posx = ix
+                        self._size[0] = ibounds[0] - posx
+                        self.pick_on_frame -= 1
+                    else:
+                        self._size[0] = ix - ibounds[0]
+                if corner // 2 == 0: # Top side start
+                    if iy > ibounds[3]:    # flipped to botton
+                        posy = ibounds[3]
+                        self._size[1] = iy - ibounds[3]
+                        self.pick_on_frame += 2
+                    elif iy == ibounds[3]:
+                        posy = iy - 1
+                        self._size[1] = ibounds[3] - posy
+                    else:
+                        posy = iy
+                        self._size[1] = ibounds[3] - iy
+                else:   # Bottom side start
+                    if iy < ibounds[1]:  # Flipped to top
+                        posy = iy
+                        self._size[1] = ibounds[1] - iy
+                        self.pick_on_frame -= 2
+                    else:
+                        self._size[1] = iy - ibounds[1]
+                if self._size[0] < 1:
+                    self._size[0] = 1
+                if self._size[1] < 1:
+                    self._size[1] = 1
+                self._validate_geometry(posx, posy)
+            else:
+                ix -= self.pick_offset[0]
+                iy -= self.pick_offset[1]
+                self._validate_geometry(ix, iy)
             self._apply_changes(old_size=old_size, old_position=old_position)
-
 
 
 class DraggableHorizontalLine(DraggablePatchBase):
@@ -1004,9 +1000,8 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
             ix = self._v2i(self.axes[0], pr[0] + 0.5*dx)
             w = self._v2i(self.axes[0], pr[1] + 0.5*dx) - ix
             old_position, old_size = self.position, self.size
-            with self.events.suppress:
-                self._pos = np.array([ix])
-                self._size = np.array([w])
+            self._pos = np.array([ix])
+            self._size = np.array([w])
             self._apply_changes(old_size=old_size, old_position=old_position)
             
                                         
@@ -1050,9 +1045,8 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
             raise ValueError()
             
         old_position, old_size = self.position, self.size
-        with self.events.suppress:
-            self._pos = np.array([x])
-            self._size = np.array([w])
+        self._pos = np.array([x])
+        self._size = np.array([w])
         self._apply_changes(old_size=old_size, old_position=old_position)
         
     def set_bounds(self, *args, **kwargs):
@@ -1072,9 +1066,8 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
         w = self._v2i(self.axes[0], x+w) - ix
             
         old_position, old_size = self.position, self.size
-        with self.events.suppress:
-            self._pos = np.array([ix])
-            self._size = np.array([w])
+        self._pos = np.array([ix])
+        self._size = np.array([w])
         self._apply_changes(old_size=old_size, old_position=old_position)
 
     def _update_patch_position(self):
