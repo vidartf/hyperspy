@@ -122,7 +122,7 @@ class BaseROI(t.HasTraits):
         with widget.events.suppress:
             self._apply_roi2widget(widget)
         if widget.ax is None:
-            widget.set_axis(ax)
+            widget.add_axes(ax)
             
         # Connect widget changes to on_widget_change
         widget.events.changed.connect(self._on_widget_change)

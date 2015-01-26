@@ -87,7 +87,7 @@ class InteractivePatchBase(object):
         ax.add_artist(self.patch)
         self.patch.set_animated(hasattr(ax, 'hspy_fig'))
 
-    def set_axis(self, ax):
+    def add_axes(self, ax):
         if ax is self.ax:
             return  # Do nothing
         # Disconnect from previous axes if set
