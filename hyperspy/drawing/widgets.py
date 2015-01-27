@@ -998,6 +998,7 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
     def _add_patch_to(self, ax):
         self.span = ModifiableSpanSelector(ax)
         self.span.set_initial(self._get_range())
+        self.span.can_switch = True
         self.span.events.changed.connect(self._span_changed)
         self.span.step_ax = self.axes[0]
         self.span.tolerance = 5
@@ -1114,6 +1115,7 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         self.events.changed = Event()
         self.events.moved = Event()
         self.events.resized = Event()
+        self.can_switch = False
         
     def dummy(self, *args, **kwargs):
         pass
@@ -1220,6 +1222,32 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         self._range = (self.rect.get_x(),
                       self.rect.get_x() + self.rect.get_width())
 
+    def switch_left_right(self, x, left_to_right):
+        if left_to_right:
+            if self.step_ax is not None:
+                if x > self.step_ax.high_value + self.step_ax.scale:
+                    return
+            w = self._range[1] - self._range[0]
+            r0 = self._range[1]
+            self.rect.set_x(r0)
+            r1 = r0 + w
+            self.canvas.mpl_disconnect(self.on_move_cid)
+            self.on_move_cid = \
+                self.canvas.mpl_connect('motion_notify_event',
+                                        self.move_right)
+        else:
+            if self.step_ax is not None:
+                if x < self.step_ax.low_value - self.step_ax.scale:
+                    return
+            w = self._range[1] - self._range[0]
+            r1 = self._range[0]
+            r0 = r1 - w
+            self.canvas.mpl_disconnect(self.on_move_cid)
+            self.on_move_cid = \
+                self.canvas.mpl_connect('motion_notify_event',
+                                        self.move_left)
+        self._range = (r0, r1)
+
     def move_left(self, event):
         if self.buttonDown is False or self.ignore(event):
             return
@@ -1236,6 +1264,9 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
             x += rem
         # Do not move the left edge beyond the right one.
         if x >= self._range[1]:
+            if self.can_switch and x > self._range[1]:
+                self.switch_left_right(x, True)
+                self.move_right(event)
             return
         width_increment = self._range[0] - x
         if self.rect.get_width() + width_increment <= 0:
@@ -1266,6 +1297,9 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
             x += rem
         # Do not move the right edge beyond the left one.
         if x <= self._range[0]:
+            if self.can_switch and x < self._range[0]:
+                self.switch_left_right(x, False)
+                self.move_left(event)
             return
         width_increment = x - self._range[1]
         if self.rect.get_width() + width_increment <= 0:
