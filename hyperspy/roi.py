@@ -4,7 +4,6 @@ import hyperspy.interactive
 from hyperspy.axes import DataAxis
 from hyperspy.drawing.widgets import ResizableDraggableRectangle, \
                                      DraggableResizableRange
-
 import numpy as np
 
 
@@ -160,7 +159,7 @@ class BaseROI(t.HasTraits):
         with widget.events.suppress:
             self._apply_roi2widget(widget)
         if widget.ax is None:
-            widget.set_axis(ax)
+            widget.set_mpl_ax(ax)
             
         # Connect widget changes to on_widget_change
         widget.events.changed.connect(self._on_widget_change)

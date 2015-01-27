@@ -290,16 +290,10 @@ class ResizableDraggablePatchBase(DraggablePatchBase):
         canvas = ax.figure.canvas
         self.cids.append(canvas.mpl_connect('key_press_event',
                                             self.on_key_press))
-            
-    def _suspend(self):
-        self._suppressor = self.events.suppress
-        self._suppressor.__enter__()
-        self._old = (self.position, self.size)
-        
-    def _resume(self):
-        self._suppressor.__exit__(None,None,None)
-        moved = self.position != self._old[0]
-        resized = self.size != self._old[1]
+
+    def _apply_changes(self, old_size, old_position):
+        moved = self.position != self.old_position
+        resized = self.size != self.old_size
         if moved:
             if self._navigating:
                 self.disconnect_navigate()
@@ -430,7 +424,7 @@ class ResizableDraggableRectangle(Patch2DBase):
         """
 
         x, y, w, h = self._parse_bounds_args(args, kwargs)
-            
+
         if not (self.axes[0].low_index <= x <= self.axes[0].high_index):
             raise ValueError()
         if not (self.axes[1].low_index <= y <= self.axes[1].high_index):
@@ -439,12 +433,12 @@ class ResizableDraggableRectangle(Patch2DBase):
             raise ValueError()
         if not (self.axes[1].low_index <= y+h <= self.axes[1].high_index):
             raise ValueError()
-            
-        self._suspend()
+
+        old_position, old_size = self.position, self.size
         self._pos = np.array([x, y])
         self._size = np.array([w, h])
-        self._resume()
-        
+        self._apply_changes(old_size=old_size, old_position=old_position)
+
     def set_bounds(self, *args, **kwargs):
         """
         Set bounds by values. Bounds can either be specified in order left,
@@ -464,12 +458,12 @@ class ResizableDraggableRectangle(Patch2DBase):
         iy = self.axes[1].value2index(y)
         w = self._v2i(self.axes[0], x+w) - ix
         h = self._v2i(self.axes[1], y+h) - iy
-            
-        self._suspend()
+
+        old_position, old_size = self.position, self.size
         self._pos = np.array([ix, iy])
         self._size = np.array([w, h])
-        self._resume()
-        
+        self._apply_changes(old_size=old_size, old_position=old_position)
+
     def _validate_pos(self, value):
         value = (min(value[0], self.axes[0].high_index - self._size[0] + 1),
                  min(value[1], self.axes[1].high_index - self._size[1] + 1))
@@ -720,7 +714,7 @@ class ResizableDraggableRectangle(Patch2DBase):
             iy = self._v2i(yaxis, event.ydata + 0.5*dy)
             p = self.position
             ibounds = [p[0], p[1], p[0] + self._size[0], p[1] + self._size[1]]
-            self._suspend()
+            old_position, old_size = self.position, self.size
             if self.pick_on_frame is not False:
                 posx = None
                 posy = None
@@ -770,8 +764,7 @@ class ResizableDraggableRectangle(Patch2DBase):
                 ix -= self.pick_offset[0]
                 iy -= self.pick_offset[1]
                 self._validate_geometry(ix, iy)
-            self._resume()
-            
+            self._apply_changes(old_size=old_size, old_position=old_position)
 
 
 class DraggableHorizontalLine(DraggablePatchBase):
@@ -1006,12 +999,11 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
             dx = self._get_size_in_axes() / self._size
             ix = self._v2i(self.axes[0], pr[0] + 0.5*dx)
             w = self._v2i(self.axes[0], pr[1] + 0.5*dx) - ix
-            self._suspend()
+            old_position, old_size = self.position, self.size
             self._pos = np.array([ix])
             self._size = np.array([w])
-            self._resume()
-            
-                                        
+            self._apply_changes(old_size=old_size, old_position=old_position)
+
     def _get_range(self):
         c = self.get_coordinates()[0]
         w = self._get_size_in_axes()[0]
@@ -1051,11 +1043,11 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
             raise ValueError()
         if not (self.axes[0].low_index <= x+w <= self.axes[0].high_index):
             raise ValueError()
-            
-        self._suspend()
+
+        old_position, old_size = self.position, self.size
         self._pos = np.array([x])
         self._size = np.array([w])
-        self._resume()
+        self._apply_changes(old_size=old_size, old_position=old_position)
         
     def set_bounds(self, *args, **kwargs):
         """
@@ -1072,11 +1064,11 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
         x, w = self._parse_bounds_args(args, kwargs)
         ix = self.axes[0].value2index(x)
         w = self._v2i(self.axes[0], x+w) - ix
-            
-        self._suspend()
+
+        old_position, old_size = self.position, self.size
         self._pos = np.array([ix])
         self._size = np.array([w])
-        self._resume()
+        self._apply_changes(old_size=old_size, old_position=old_position)
 
     def _update_patch_position(self):
         self._update_patch_geometry()
