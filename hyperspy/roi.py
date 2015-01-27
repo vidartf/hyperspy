@@ -92,11 +92,9 @@ class BaseROI(t.HasTraits):
         with self.events.suppress:
             self._bounds_check = False
             try:
-                ndim = len(self.coords)//2
-                for i in xrange(ndim):
-                    c = widget.get_coordinates()
-                    s = widget._get_size_in_axes() + c   # np addition
-                    self.coords = tuple(c) + tuple(s) # Tuple concatination
+                c = widget.get_coordinates()
+                s = widget._get_size_in_axes() + c   # np addition
+                self.coords = tuple(c) + tuple(s) # Tuple concatination
             finally:
                 self._bounds_check = True
         self._update_widgets(exclude=(widget,))

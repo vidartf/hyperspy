@@ -71,12 +71,13 @@ class InteractivePatchBase(object):
                     if self.patch in container:
                         container.remove(self.patch)
                 self.disconnect(self.ax)
-                self.ax = None
-            self.__is_on = value
             try:
-                self.ax.figure.canvas.draw()
+                self.draw_patch()
             except:  # figure does not exist
                 pass
+            if value is False:
+                self.ax = None
+        self.__is_on = value
 
     def _set_patch(self):
         pass
@@ -159,7 +160,7 @@ class DraggablePatchBase(InteractivePatchBase):
                 self.axes = self.axes_manager.signal_axes[0:1]
         
     def _get_position(self):
-        return tuple(self._pos) # Don't pass reference, and make it clear
+        return tuple(self._pos.tolist()) # Don't pass reference, and make it clear
         
     def _set_position(self, value):
         value = self._validate_pos(value)
@@ -208,7 +209,7 @@ class DraggablePatchBase(InteractivePatchBase):
             i = self.axes.index(obj)
             p = list(self.position)
             p[i] = new
-            self.position = tuple(p)    # Use position to trigger events
+            self.position = p    # Use position to trigger events
 
     def onpick(self, event):
         self.picked = (event.artist is self.patch)
@@ -240,7 +241,7 @@ class ResizableDraggablePatchBase(DraggablePatchBase):
         self.events.resized = Event()
         
     def _get_size(self):
-        return tuple(self._size)
+        return tuple(self._size.tolist())
         
     def _set_size(self, value):
         value = np.minimum(value, [ax.size for ax in self.axes])
@@ -293,8 +294,8 @@ class ResizableDraggablePatchBase(DraggablePatchBase):
             
 
     def _apply_changes(self, old_size, old_position):
-        moved = self.position != self.old_position
-        resized = self.size != self.old_size
+        moved = self.position != old_position
+        resized = self.size != old_size
         if moved:
             if self._navigating:
                 self.disconnect_navigate()
@@ -572,10 +573,10 @@ class ResizableDraggableRectangle(Patch2DBase):
     def _update_resizers(self):
         pos = self._get_resizer_pos()
         rsize = self._get_resizer_size()
-        for i in xrange(4):
-            self._resizer_handles[i].set_xy(pos[i])
-            self._resizer_handles[i].set_width(rsize[0])
-            self._resizer_handles[i].set_height(rsize[1])
+        for i, r in enumerate(self._resizer_handles):
+            r.set_xy(pos[i])
+            r.set_width(rsize[0])
+            r.set_height(rsize[1])
 
     def _set_patch(self):
         super(ResizableDraggableRectangle, self)._set_patch()
@@ -604,6 +605,8 @@ class ResizableDraggableRectangle(Patch2DBase):
                     for r in self._resizer_handles:
                         if r in container:
                             container.remove(r)
+                self._resizer_handles = []
+                self.draw_patch()
 
     def _get_resizer_size(self):
         invtrans = self.ax.transData.inverted()
@@ -972,6 +975,10 @@ def in_interval(number, interval):
 
 
 class DraggableResizableRange(ResizableDraggablePatchBase):
+    
+    def __init__(self, axes_manager):
+        super(DraggableResizableRange, self).__init__(axes_manager)
+        self.span = None
 
     def set_on(self, value):
         if value is not self.is_on() and self.ax is not None:
@@ -980,25 +987,27 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
                 self.connect(self.ax)
             elif value is False:
                 self.disconnect(self.ax)
-                self.ax = None
-            self.__is_on = value
             try:
                 self.ax.figure.canvas.draw()
             except:  # figure does not exist
                 pass
+            if value is False:
+                self.ax = None
+        self.__is_on = value
 
     def _add_patch_to(self, ax):
-        self.patch = ModifiableSpanSelector(ax)
-        self.patch.set_initial(self._get_range())
-        self.patch.events.changed.connect(self._patch_changed)
-        self.patch.step_ax = self.axes[0]
-        self.patch.tolerance = 5
+        self.span = ModifiableSpanSelector(ax)
+        self.span.set_initial(self._get_range())
+        self.span.events.changed.connect(self._span_changed)
+        self.span.step_ax = self.axes[0]
+        self.span.tolerance = 5
+        self.patch = self.span.rect
     
-    def _patch_changed(self, patch):
+    def _span_changed(self, span):
         r = self._get_range()
-        pr = patch.range
+        pr = span.range
         if r != pr:
-            dx = self._get_size_in_axes() / self._size
+            dx = (self._get_size_in_axes() / self._size)[0]
             ix = self._v2i(self.axes[0], pr[0] + 0.5*dx)
             w = self._v2i(self.axes[0], pr[1] + 0.5*dx) - ix
             old_position, old_size = self.position, self.size
@@ -1080,15 +1089,14 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
         self._update_patch_geometry()
 
     def _update_patch_geometry(self):
-        if self.is_on() and self.patch is not None:
-            self.patch.range = self._get_range()
-        
+        if self.is_on() and self.span is not None:
+            self.span.range = self._get_range()
 
     def disconnect(self, ax):
         super(DraggableResizableRange, self).disconnect(ax)
-        if self.patch and self.ax == ax:
-            self.patch.turn_off()
-            self.patch = None
+        if self.span and self.ax == ax:
+            self.span.turn_off()
+            self.span = None
     
 
 class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
@@ -1150,7 +1158,6 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
             self.canvas.mpl_connect('draw_event', self.update_background))
         self.rect.set_visible(True)
         self.update()
-        
 
     def release(self, event):
         """When the button is realeased, the span stays in the screen and the
@@ -1169,7 +1176,7 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
 
         # Calculate the point size in data units
         invtrans = self.ax.transData.inverted()
-        x_pt = abs((invtrans.transform((1, 0)) -
+        x_pt = self.tolerance * abs((invtrans.transform((1, 0)) -
                     invtrans.transform((0, 0)))[0])
 
         # Determine the size of the regions for moving and stretching
@@ -1202,9 +1209,6 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         if self.buttonDown is False or self.ignore(event):
             return
         x = event.xdata
-        # Do not move the left edge beyond the right one.
-        if x >= self._range[1]:
-            return
         if self.step_ax is not None:
             if x < self.step_ax.low_value - self.step_ax.scale:
                 return
@@ -1215,7 +1219,12 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
             else:
                 rem = self.step_ax.scale-rem
             x += rem
+        # Do not move the left edge beyond the right one.
+        if x >= self._range[1]:
+            return
         width_increment = self._range[0] - x
+        if self.rect.get_width() + width_increment <= 0:
+            return
         self.rect.set_x(x)
         self.rect.set_width(self.rect.get_width() + width_increment)
         self.update_range()
@@ -1230,9 +1239,6 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         if self.buttonDown is False or self.ignore(event):
             return
         x = event.xdata
-        # Do not move the right edge beyond the left one.
-        if x <= self._range[0]:
-            return
         if self.step_ax is not None:
             if x > self.step_ax.high_value + self.step_ax.scale:
                 return
@@ -1243,7 +1249,12 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
             else:
                 rem = self.step_ax.scale-rem
             x += rem
+        # Do not move the right edge beyond the left one.
+        if x <= self._range[0]:
+            return
         width_increment = x - self._range[1]
+        if self.rect.get_width() + width_increment <= 0:
+            return
         self.rect.set_width(self.rect.get_width() + width_increment)
         self.update_range()
         self.events.resized.trigger(self)
