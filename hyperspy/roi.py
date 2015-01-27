@@ -286,8 +286,11 @@ class RectangularROI(BaseROI):
             else:
                 y = axes_manager[axes[1]]
             if x.navigate != y.navigate:
-                raise ValueError("Axes need to be in same space")
-            if x.navigate:
+                # Here we assume that the navigator plot includes one of the
+                # signal dimensions, and that the user wants to have the ROI
+                # there.
+                ax = plot.navigator_plot.ax
+            elif x.navigate:
                 ax = plot.navigator_plot.ax
             else:
                 ax = plot.signal_plot.ax
@@ -300,8 +303,15 @@ class RectangularROI(BaseROI):
                 ax = plot.signal_plot.ax
                 x = axes_manager.signal_axes[0]
                 y = axes_manager.signal_axes[1]
+            elif axes_manager.navigation_dimensions == 1 and \
+                    axes_manager.signal_dimension == 1:
+                # We probably have a navigator plot icluding both nav and sig
+                # axes. Use navigator plot.
+                ax = plot.navigator_plot.ax
+                x = axes_manager.signal_axes[0]
+                y = axes_manager.navigation_axes[0]
             else:
-                raise ValueError("Neither space has two dimensions")
+                raise ValueError("Could not find valid axes configuration.")
         return (x,y), ax
 
     def __repr__(self):
