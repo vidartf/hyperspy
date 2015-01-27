@@ -1104,7 +1104,7 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         matplotlib.widgets.SpanSelector.__init__(
             self, ax, onsel, direction='horizontal', useblit=False, **kwargs)
         # The tolerance in points to pick the rectangle sizes
-        self.tolerance = 5
+        self.tolerance = 1
         self.on_move_cid = None
         self._range = None
         self.step_ax = None
