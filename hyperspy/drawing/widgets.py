@@ -1157,7 +1157,22 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         self.cids.append(
             self.canvas.mpl_connect('draw_event', self.update_background))
         self.rect.set_visible(True)
+        self.rect.contains = self._contains
         self.update()
+
+    def contains(self, mouseevent):
+        # Assert y is correct first
+        x,y = self.rect.get_transform().inverted().transform_point(
+            (mouseevent.x, mouseevent.y))
+        if not (0.0 <= y <= 1.0):
+            return False, {}
+        invtrans = self.ax.transData.inverted()
+        x_pt = self.tolerance * abs((invtrans.transform((1, 0)) -
+                    invtrans.transform((0, 0)))[0])
+        hit = self._range[0] - x_pt, self._range[1] + x_pt
+        if hit[0] < mouseevent.xdata < hit[1]:
+            return True, {}
+        return False, {}
 
     def release(self, event):
         """When the button is realeased, the span stays in the screen and the
