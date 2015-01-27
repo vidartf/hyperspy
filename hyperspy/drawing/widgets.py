@@ -440,6 +440,7 @@ class ResizableDraggableRectangle(Patch2DBase):
         self._pos = np.array([x, y])
         self._size = np.array([w, h])
         self._apply_changes(old_size=old_size, old_position=old_position)
+
     def set_bounds(self, *args, **kwargs):
         """
         Set bounds by values. Bounds can either be specified in order left,
