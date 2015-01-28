@@ -199,7 +199,7 @@ class DraggablePatchBase(InteractivePatchBase):
         super(DraggablePatchBase, self).connect(ax)
         canvas = ax.figure.canvas
         self.cids.append(
-            canvas.mpl_connect('motion_notify_event', self.onmousemove))
+            canvas.mpl_connect('motion_notify_event', self._onmousemove))
         self.cids.append(canvas.mpl_connect('pick_event', self.onpick))
         self.cids.append(canvas.mpl_connect(
             'button_release_event', self.button_release))
@@ -363,7 +363,7 @@ class DraggableSquare(Patch2DBase):
     def __init__(self, axes_manager):
         super(DraggableSquare, self).__init__(axes_manager)
                                             
-    def onmousemove(self, event):
+    def _onmousemove(self, event):
         'on mouse motion move the patch if picked'
         if self.picked is True and event.inaxes:
             ix = self.axes[0].value2index(event.xdata)
@@ -708,7 +708,7 @@ class ResizableDraggableRectangle(Patch2DBase):
             self.pick_offset = (ix-p[0], iy-p[1])
             self.pick_on_frame = False
         
-    def onmousemove(self, event):
+    def _onmousemove(self, event):
         'on mouse motion draw the patch if picked'
         if self.picked is True and event.inaxes:
             xaxis = self.axes[0]
