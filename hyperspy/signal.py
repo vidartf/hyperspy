@@ -2529,6 +2529,7 @@ class Signal(MVA,
         self.isig = SpecialSlicers(self, False)
         self.events = Events()
         self.events.data_changed = Event()
+        self.events.axes_changed = Event()
 
     @property
     def mapped_parameters(self):
@@ -2616,7 +2617,8 @@ class Signal(MVA,
             _signal = self._deepcopy_with_new_data(self.data)
         else:
             out.data = self.data
-            out.axes_manager = self.axes_manager.deepcopy()
+            out._update_calibration_from(self.axes_manager,
+                                         fields=('offset', 'scale', 'size'))
             _signal = out
 
         nav_idx = [el.index_in_array for el in
@@ -2677,6 +2679,7 @@ class Signal(MVA,
         if out is None:
             return _signal
         else:
+            out.events.axes_changed.trigger()
             out.events.data_changed.trigger()
 
     def __setitem__(self, i, j):
@@ -3147,7 +3150,7 @@ class Signal(MVA,
                 filename = os.path.join(
                     self.tmp_parameters.folder,
                     self.tmp_parameters.filename)
-                extesion = (self.tmp_parameters.extension
+                extension = (self.tmp_parameters.extension
                             if not extension
                             else extension)
             elif self.metadata.has_item('General.original_filename'):
@@ -3163,6 +3166,14 @@ class Signal(MVA,
         if self._plot is not None:
             if self._plot.is_active() is True:
                 self.plot()
+
+    def update_plot(self):
+        if self._plot is not None:
+            if self._plot.is_active() is True:
+                if self._plot.signal_plot is not None:
+                    self._plot.signal_plot.update()
+                if self._plot.navigator_plot is not None:
+                    self._plot.navigator_plot.update()
 
     @auto_replot
     def get_dimensions_from_data(self):
@@ -3603,6 +3614,22 @@ class Signal(MVA,
                 return
             self.metadata.Signal.record_by = self._record_by
             self._assign_subclass()
+    
+    def _update_calibration_from(self, axes_manager, fields=('offset', 'scale')):
+        self_lut = {a._origin_id: a for a in self.axes_manager._axes}
+        any_changes = False
+        for src_axis in axes_manager._axes:
+            if src_axis._origin_id not in self_lut:
+                continue
+            dst_axis = self_lut.pop(src_axis._origin_id)
+            changed = {}
+            for f in fields:
+                if getattr(dst_axis, f) != getattr(src_axis, f):
+                    changed[f] = getattr(src_axis, f)
+            if len(changed) > 0:
+                dst_axis.trait_set(**changed)
+                any_changes = True
+        return any_changes
 
     def _apply_function_on_data_and_remove_axis(self, function, axis,
                                                 out=None):
