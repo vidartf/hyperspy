@@ -705,6 +705,9 @@ class AxesManager(t.HasTraits):
             if len(changed) > 0:
                 dst_axis.trait_set(**changed)
                 any_changes = True
+        if remove_extra:
+            for extra in self_lut.values():
+                self._axes.remove(extra)
         return any_changes
 
     def set_signal_dimension(self, value):
