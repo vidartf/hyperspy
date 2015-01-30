@@ -1,9 +1,10 @@
 import traits.api as t
+import numpy as np
 from hyperspy.events import Events, Event
 import hyperspy.interactive
 from hyperspy.axes import DataAxis
-from hyperspy.drawing.widgets import ResizableDraggableRectangle, \
-                                     DraggableResizableRange
+from hyperspy.drawing import widgets
+                                     
 
 
 class BaseROI(t.HasTraits):
@@ -23,7 +24,7 @@ class BaseROI(t.HasTraits):
     coords = property(lambda s: s._get_coords(), lambda s,v: s._set_coords(v))
 
     def update(self):
-        if t.Undefined not in self.coords:
+        if t.Undefined not in np.ravel(self.coords):
             if not self.events.roi_changed.suppress:
                 self._update_widgets()
             self.events.roi_changed.trigger(self)
@@ -60,15 +61,23 @@ class BaseROI(t.HasTraits):
         """
         if ranges is None:
             ranges= []
-            ndim = len(self.coords)//2
+            ndim = len(self.coords)
             for i in xrange(ndim):
-                ranges.append((self.coords[i], self.coords[ndim+i]))
+                c = self.coords[i]
+                if len(c) == 1:
+                    ranges.append((c[0], None))
+                elif len(c) == 2:
+                    ranges.append((c[0], c[1]))
         slices = []
         for ax in axes_collecion:
             if ax in axes:
                 i = axes.index(ax)
                 ilow = ax.value2index(ranges[i][0])
-                ihigh = 1 + ax.value2index(ranges[i][1], rounding=lambda x: round(x-1))
+                if ranges[i][1] is None:
+                    ihigh = 1 + ilow
+                else:
+                    ihigh = 1 + ax.value2index(ranges[i][1], 
+                                               rounding=lambda x: round(x-1))
                 slices.append(slice(ilow, ihigh))
             else:
                 slices.append(slice(None))
@@ -87,27 +96,32 @@ class BaseROI(t.HasTraits):
             return roi
         else:
             signal.__getitem__(slices, out=out)
+            
+    def _set_coords_from_widget(self, widget=None):
+        if widget is None:
+            widget = self.widget
+        c = widget.get_coordinates()
+        s = widget._get_size_in_axes()
+        self.coords = zip(c, c+s)
 
     def _on_widget_change(self, widget):
         with self.events.suppress:
             self._bounds_check = False
             try:
-                c = widget.get_coordinates()
-                s = widget._get_size_in_axes() + c   # np addition
-                self.coords = tuple(c) + tuple(s) # Tuple concatination
+                self._set_coords_from_widget()
             finally:
                 self._bounds_check = True
         self._update_widgets(exclude=(widget,))
         self.events.roi_changed.trigger(self)
         
-    def _get_widget_type(self):
+    def _get_widget_type(self, axes, signal):
         raise NotImplementedError()
 
     def add_widget(self, signal, axes=None, widget=None, color='green'):
+        axes, ax = self._parse_axes(axes, signal.axes_manager, signal._plot)
         if widget is None:
-            widget = self._get_widget_type()(signal.axes_manager)
+            widget = self._get_widget_type(axes, signal)(signal.axes_manager)
             widget.color = color
-        axes, ax = self._parse_axes(axes, widget.axes_manager, signal._plot)
         
         # Remove existing ROI, if it exsists and axes match
         if self.signal_map.has_key(signal) and \
@@ -144,6 +158,84 @@ class BaseROI(t.HasTraits):
             w = self.signal_map.pop(signal)[0]
             self._remove_widget(w)
 
+class Point1DROI(BaseROI):
+    x = t.CFloat(t.Undefined)
+    
+    def __init__(self, x):
+        self.x = x
+    
+    def _get_coords(self):
+        return ((self.x,),)
+        
+    def _set_coords(self, value):
+        if self.coords != value:
+            self.x = value[0,0]
+            
+    def _set_coords_from_widget(self, widget=None):
+        if widget is None:
+            widget = self.widget
+        c = widget.get_coordinates()
+        self.coords = zip(c)
+
+    def _x_changed(self, old, new):
+        self.update()
+
+    def _apply_roi2widget(self, widget):
+        widget.set_bounds(left=self.left, right=self.right)
+        
+    def _get_widget_type(self, axes, signal):
+        if axes[0].navigate:
+            plotdim = len(signal._plot.navigator_data_function().shape)
+            axdim = signal.axes_manager.navigation_dimension
+            idx = signal.axes_manager.navigation_axes.index(axes[0])
+        else:
+            plotdim = len(signal._plot.signal_data_function().shape)
+            axdim = signal.axes_manager.signal_dimension
+            idx = signal.axes_manager.signal_axes.index(axes[0])
+        
+        if plotdim == 2:  # Plot is an image
+            # axdim == 1 and plotdim == 2 indicates "spectrum stack"
+            if idx == 0 and axdim != 1:    # Axis is horizontal
+                return widgets.DraggableVerticalLine
+            else:  # Axis is vertical
+                return widgets.DraggableHorizontalLine
+        elif plotdim == 1:  # It is a spectrum
+            return widgets.DraggableVerticalLine
+        else:
+            raise ValueError("Could not find valid widget type")
+
+    def _parse_axes(self, axes, axes_manager, plot):
+        if isinstance(axes, basestring):
+            # Specifies space
+            if axes.startswith("nav"):
+                x = axes_manager.navigation_axes[0]
+            elif axes.startswith("sig"):
+                x = axes_manager.signal_axes[0]
+        elif isinstance(axes, tuple):
+            if isinstance(axes[0], DataAxis):
+                x = axes[0]
+            else:
+                x = axes_manager[axes[0]]
+        else:
+            if axes_manager.navigation_dimension > 0:
+                x = axes_manager.navigation_axes[0]
+            elif axes_manager.signal_dimension > 0:
+                x = axes_manager.signal_axes[0]
+            else:
+                raise ValueError("Neither space has one dimensions")
+        if x.navigate:
+            ax = plot.navigator_plot.ax
+        else:
+            ax = plot.signal_plot.ax
+        return (x,), ax
+
+    def __repr__(self):
+        return "%s(left=%f, right=%f)" % (
+            self.__class__.__name__,
+            self.left,
+            self.right)
+        
+
 class SpanROI(BaseROI):
     left, right = (t.CFloat(t.Undefined),) * 2
     
@@ -153,11 +245,11 @@ class SpanROI(BaseROI):
         self.left, self.right = left, right
         
     def _get_coords(self):
-        return self.left, self.right
+        return ((self.left, self.right),)
         
     def _set_coords(self, value):
         if self.coords != value:
-            self.left, self.right = value
+            self.left, self.right = value[0]
 
     def _right_changed(self, old, new):
         if self._bounds_check and \
@@ -176,8 +268,8 @@ class SpanROI(BaseROI):
     def _apply_roi2widget(self, widget):
         widget.set_bounds(left=self.left, right=self.right)
         
-    def _get_widget_type(self):
-        return DraggableResizableRange
+    def _get_widget_type(self, axes, signal):
+        return widgets.DraggableResizableRange
 
     def _parse_axes(self, axes, axes_manager, plot):
         if isinstance(axes, basestring):
@@ -224,11 +316,11 @@ class RectangularROI(BaseROI):
         self.top, self.bottom, self.left, self.right = top, bottom, left, right
         
     def _get_coords(self):
-        return self.left, self.top, self.right, self.bottom
+        return (self.left, self.right), (self.top, self.bottom)
         
     def _set_coords(self, value):
         if self.coords != value:
-            self.left, self.top, self.right, self.bottom = value
+            (self.left, self.right), (self.top, self.bottom) = value
 
     def _top_changed(self, old, new):
         if self._bounds_check and \
@@ -262,8 +354,8 @@ class RectangularROI(BaseROI):
         widget.set_bounds(left=self.left, bottom=self.bottom, 
                           right=self.right, top=self.top)
         
-    def _get_widget_type(self):
-        return ResizableDraggableRectangle
+    def _get_widget_type(self, axes, signal):
+        return widgets.ResizableDraggableRectangle
 
     def _parse_axes(self, axes, axes_manager, plot):
         if isinstance(axes, basestring):

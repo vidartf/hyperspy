@@ -22,11 +22,35 @@ import matplotlib.pyplot as plt
 import matplotlib.widgets
 import matplotlib.transforms as transforms
 import numpy as np
-import traits
 
 from utils import on_figure_window_close
 from hyperspy.misc.math_tools import closest_nice_number
 from hyperspy.events import Events, Event
+
+def unit_vector(vector):
+    """ Returns the unit vector of the vector.  """
+    return vector / np.linalg.norm(vector)
+
+def angle_between(v1, v2):
+    """ Returns the angle in radians between @D vectors 'v1' and 'v2'::
+
+            >>> angle_between((1, 0), (0, 1))
+            1.5707963267948966
+            >>> angle_between((1, 0), (1, 0))
+            0.0
+            >>> angle_between((1, 0), (-1, 0))
+            3.141592653589793
+    """
+    v1_u = unit_vector(v1)
+    v2_u = unit_vector(v2)
+    angle = np.arctan2(v2_u[1],v2_u[0]) - np.arctan2(v1_u[1],v1_u[0])
+    #angle = np.arccos(np.dot(v1_u, v2_u))
+    if np.isnan(angle):
+        if (v1_u == v2_u).all():
+            return 0.0
+        else:
+            return np.pi
+    return angle
 
 
 class InteractivePatchBase(object):
@@ -253,10 +277,10 @@ class ResizableDraggablePatchBase(DraggablePatchBase):
     size = property(lambda s: s._get_size(), lambda s,v: s._set_size(v))
 
     def increase_size(self):
-        self._set_size(self._size + 1)
+        self._set_size(np.array(self.size) + 1)
 
     def decrease_size(self):
-        self._set_size(self._size - 1)
+        self._set_size(np.array(self.size) - 1)
             
     def _size_changed(self):
         self.events.resized.trigger(self)
@@ -839,6 +863,64 @@ class DraggableLabel(DraggablePatchBase):
             bbox=self.bbox,
             animated=self.blit)
 
+class DraggableResizable2DLine(ResizableDraggablePatchBase):
+    def __init__(self, axes_manager):
+        super(DraggableResizable2DLine, self).__init__(axes_manager)        
+        self._pos = np.array([[0, 0], [0, 0]])
+        self._size = np.array([[0, 0]])
+    
+    def connect_navigate(self):
+        raise NotImplementedError("Lines cannot be used to navigate yet")
+        
+    def _get_position(self):
+        ret = tuple()
+        for i in xrange(np.shape(self._pos)[0]):
+            ret += (tuple(self._pos[i,:]), )
+        return ret # Don't pass reference, and make it clear
+            
+    def _validate_pos(self, pos):
+        """Make sure all points of 'pos' are within axis bounds.
+        """
+        ndim = np.shape(pos)[1]
+        if ndim != len(self.axes):
+            raise ValueError()
+        for i in xrange(ndim):
+            if not np.all(self.axes[i].low_index <= pos[:,i] <= \
+                          self.axes[i].high_index):
+                raise ValueError()
+        return pos
+    
+    def _get_size(self):
+        return tuple(self._size)
+        
+    def _set_size(self, value):
+        value = np.minimum(value, [ax.size for ax in self.axes])
+        value = np.maximum(value, 1)
+        if np.any(self._size != value):
+            self._size = value
+            self._size_changed()
+    
+    size = property(lambda s: s._get_size(), lambda s,v: s._set_size(v))
+
+    def _get_size_in_axes(self):
+        
+        coord_decomp = np.sum(np.abs(self.position), )
+        for i in xrange(len(self.axes)):
+            s.append(self.axes[i].scale * self._size[i])
+        return np.array(s)
+        
+    def get_centre(self):
+        return np.mean(self._pos, axis=0)
+        
+    def _update_patch_position(self):
+        self._update_patch_geometry()
+
+    def _update_patch_size(self):
+        self._update_patch_geometry()
+    
+    def _update_patch_geometry(self):
+        #TODO: implement
+        pass
 
 class Scale_Bar():
 
