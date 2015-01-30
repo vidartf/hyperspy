@@ -157,31 +157,82 @@ class BaseROI(t.HasTraits):
         if self.signal_map.has_key(signal):
             w = self.signal_map.pop(signal)[0]
             self._remove_widget(w)
-
-class Point1DROI(BaseROI):
-    x = t.CFloat(t.Undefined)
     
-    def __init__(self, x):
-        self.x = x
-    
-    def _get_coords(self):
-        return ((self.x,),)
-        
-    def _set_coords(self, value):
-        if self.coords != value:
-            self.x = value[0,0]
+    def _parse_axes(self, axes, axes_manager, plot):
+        nd = len(axes)
+        if nd == 1:
+            if isinstance(axes, basestring):
+                # Specifies space
+                if axes.startswith("nav"):
+                    x = axes_manager.navigation_axes[0]
+                    if nd > 1:
+                        y = axes_manager.navigation_axes[1]
+                elif axes.startswith("sig"):
+                    x = axes_manager.signal_axes[0]
+                    if nd > 1:
+                        y = axes_manager.signal_axes[1]
+            elif isinstance(axes, tuple):
+                if isinstance(axes[0], DataAxis):
+                    x = axes[0]
+                else:
+                    x = axes_manager[axes[0]]
+                if nd > 1:
+                    if isinstance(axes[1], DataAxis):
+                        y = axes[1]
+                    else:
+                        y = axes_manager[axes[1]]
+                    if x.navigate != y.navigate:
+                        raise ValueError("Axes need to be in same space")
+            else:
+                if axes_manager.navigation_dimension >= nd:
+                    x = axes_manager.navigation_axes[0]
+                    if nd > 1:
+                        y = axes_manager.navigation_axes[1]
+                elif axes_manager.signal_dimension >= nd:
+                    x = axes_manager.signal_axes[0]
+                    if nd > 1:
+                        y = axes_manager.signal_axes[1]
+                else:
+                    raise ValueError("Neither space has %d dimensions" % nd)
+            if x.navigate:
+                ax = plot.navigator_plot.ax
+            else:
+                ax = plot.signal_plot.ax
             
+            if nd > 1:
+                axes = (x,y)
+            else:
+                axes = (x,)
+            return axes, ax
+
+
+class BasePointROI(BaseROI):
     def _set_coords_from_widget(self, widget=None):
         if widget is None:
             widget = self.widget
         c = widget.get_coordinates()
         self.coords = zip(c)
 
-    def _x_changed(self, old, new):
+
+class Point1DROI(BasePointROI):
+    value = t.CFloat(t.Undefined)
+    
+    def __init__(self, value):
+        super(Point1DROI, self).__init__()
+        self.value = value
+
+    def _value_changed(self, old, new):
         self.update()
+    
+    def _get_coords(self):
+        return ((self.value,),)
+        
+    def _set_coords(self, value):
+        if self.coords != value:
+            self.value = value[0,0]
 
     def _apply_roi2widget(self, widget):
-        widget.set_bounds(left=self.left, right=self.right)
+        widget.set_coordinates(self.value)
         
     def _get_widget_type(self, axes, signal):
         if axes[0].navigate:
@@ -204,36 +255,41 @@ class Point1DROI(BaseROI):
         else:
             raise ValueError("Could not find valid widget type")
 
-    def _parse_axes(self, axes, axes_manager, plot):
-        if isinstance(axes, basestring):
-            # Specifies space
-            if axes.startswith("nav"):
-                x = axes_manager.navigation_axes[0]
-            elif axes.startswith("sig"):
-                x = axes_manager.signal_axes[0]
-        elif isinstance(axes, tuple):
-            if isinstance(axes[0], DataAxis):
-                x = axes[0]
-            else:
-                x = axes_manager[axes[0]]
-        else:
-            if axes_manager.navigation_dimension > 0:
-                x = axes_manager.navigation_axes[0]
-            elif axes_manager.signal_dimension > 0:
-                x = axes_manager.signal_axes[0]
-            else:
-                raise ValueError("Neither space has one dimensions")
-        if x.navigate:
-            ax = plot.navigator_plot.ax
-        else:
-            ax = plot.signal_plot.ax
-        return (x,), ax
+    def __repr__(self):
+        return "%s(value=%f)" % (
+            self.__class__.__name__,
+            self.value)
+
+
+class Point2DROI(BaseROI):
+    x, y = (t.CFloat(t.Undefined),) * 2
+    
+    def __init__(self, x, y):
+        self.x = y
+    
+    def _get_coords(self):
+        return ((self.x, self.y),)
+        
+    def _set_coords(self, value):
+        if self.coords != value:
+            self.x, self.y = value[0]
+
+    def _x_changed(self, old, new):
+        self.update()
+        
+    def _y_changed(self, old, new):
+        self.update()
+
+    def _apply_roi2widget(self, widget):
+        widget.set_coordinates((self.x, self.y))
+        
+    def _get_widget_type(self, axes, signal):
+        return widgets.DraggableSquare
 
     def __repr__(self):
-        return "%s(left=%f, right=%f)" % (
+        return "%s(value=%f)" % (
             self.__class__.__name__,
-            self.left,
-            self.right)
+            self.value)
         
 
 class SpanROI(BaseROI):
@@ -270,35 +326,6 @@ class SpanROI(BaseROI):
         
     def _get_widget_type(self, axes, signal):
         return widgets.DraggableResizableRange
-
-    def _parse_axes(self, axes, axes_manager, plot):
-        if isinstance(axes, basestring):
-            # Specifies space
-            if axes.startswith("nav"):
-                ax = plot.navigator_plot.ax
-                x = axes_manager.navigation_axes[0]
-            elif axes.startswith("sig"):
-                ax = plot.signal_plot.ax
-                x = axes_manager.signal_axes[0]
-        elif isinstance(axes, tuple):
-            if isinstance(axes[0], DataAxis):
-                x = axes[0]
-            else:
-                x = axes_manager[axes[0]]
-            if x.navigate:
-                ax = plot.navigator_plot.ax
-            else:
-                ax = plot.signal_plot.ax
-        else:
-            if axes_manager.navigation_dimension > 0:
-                ax = plot.navigator_plot.ax
-                x = axes_manager.navigation_axes[0]
-            elif axes_manager.signal_dimension > 0:
-                ax = plot.signal_plot.ax
-                x = axes_manager.signal_axes[0]
-            else:
-                raise ValueError("Neither space has one dimensions")
-        return (x,), ax
 
     def __repr__(self):
         return "%s(left=%f, right=%f)" % (
@@ -356,45 +383,6 @@ class RectangularROI(BaseROI):
         
     def _get_widget_type(self, axes, signal):
         return widgets.ResizableDraggableRectangle
-
-    def _parse_axes(self, axes, axes_manager, plot):
-        if isinstance(axes, basestring):
-            # Specifies space
-            if axes.startswith("nav"):
-                ax = plot.navigator_plot.ax
-                x = axes_manager.navigation_axes[0]
-                y = axes_manager.navigation_axes[1]
-            elif axes.startswith("sig"):
-                ax = plot.signal_plot.ax
-                x = axes_manager.signal_axes[0]
-                y = axes_manager.signal_axes[1]
-        elif isinstance(axes, tuple):
-            if isinstance(axes[0], DataAxis):
-                x = axes[0]
-            else:
-                x = axes_manager[axes[0]]
-            if isinstance(axes[1], DataAxis):
-                y = axes[1]
-            else:
-                y = axes_manager[axes[1]]
-            if x.navigate != y.navigate:
-                raise ValueError("Axes need to be in same space")
-            if x.navigate:
-                ax = plot.navigator_plot.ax
-            else:
-                ax = plot.signal_plot.ax
-        else:
-            if axes_manager.navigation_dimension > 1:
-                ax = plot.navigator_plot.ax
-                x = axes_manager.navigation_axes[0]
-                y = axes_manager.navigation_axes[1]
-            elif axes_manager.signal_dimension > 1:
-                ax = plot.signal_plot.ax
-                x = axes_manager.signal_axes[0]
-                y = axes_manager.signal_axes[1]
-            else:
-                raise ValueError("Neither space has two dimensions")
-        return (x,y), ax
 
     def __repr__(self):
         return "%s(left=%f, top=%f, right=%f, bottom=%f)" % (
