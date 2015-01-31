@@ -899,6 +899,7 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         self.func = self.FUNC_NONE
         self._prev_pos = None
         self._rotate_orig = None
+        self._width_indicators = []
         
         # Set default axes
         if self.axes_manager is not None:
@@ -976,6 +977,9 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         if self.is_on() and self.patch is not None:
             self.patch.set_data(self.coordinates.T)
             self.draw_patch()
+            if self.size[0] > 1:
+                pass
+                #TODO: Update width indicators
 
     def _set_patch(self):
         xy = self.coordinates
@@ -992,6 +996,14 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
             mew=0.1,
             mfc='lime',
             picker=max_r,)
+        if self.size[0] > 1:
+            #TODO: Draw width indicators
+            pass
+#            trans = self.ax.transData
+#            p = np.array(trans.transform(self.coordinates))
+#            
+#            w1 = self.ax.plot(xy[:,0])
+#            self._width_indicators
         self.ax.autoscale(tight=True)
 
             
