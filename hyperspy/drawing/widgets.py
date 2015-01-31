@@ -22,11 +22,35 @@ import matplotlib.pyplot as plt
 import matplotlib.widgets
 import matplotlib.transforms as transforms
 import numpy as np
-import traits
 
 from utils import on_figure_window_close
 from hyperspy.misc.math_tools import closest_nice_number
 from hyperspy.events import Events, Event
+
+def unit_vector(vector):
+    """ Returns the unit vector of the vector.  """
+    return vector / np.linalg.norm(vector)
+
+def angle_between(v1, v2):
+    """ Returns the angle in radians between @D vectors 'v1' and 'v2'::
+
+            >>> angle_between((1, 0), (0, 1))
+            1.5707963267948966
+            >>> angle_between((1, 0), (1, 0))
+            0.0
+            >>> angle_between((1, 0), (-1, 0))
+            3.141592653589793
+    """
+    v1_u = unit_vector(v1)
+    v2_u = unit_vector(v2)
+    angle = np.arctan2(v2_u[1],v2_u[0]) - np.arctan2(v1_u[1],v1_u[0])
+    #angle = np.arccos(np.dot(v1_u, v2_u))
+    if np.isnan(angle):
+        if (v1_u == v2_u).all():
+            return 0.0
+        else:
+            return np.pi
+    return angle
 
 
 class InteractivePatchBase(object):
@@ -190,17 +214,31 @@ class DraggablePatchBase(InteractivePatchBase):
                 raise ValueError()
         return pos
             
-    def get_coordinates(self):
+    def _get_coordinates(self):
         coord = []
         for i in xrange(len(self.axes)):
             coord.append(self.axes[i].index2value(self.position[i]))
         return np.array(coord)
     
+    def _set_coordinates(self, coordinates):
+        if np.ndim(coordinates) == 0 and len(self.axes) == 1:
+            self.position = [self.axes[0].value2index(coordinates)]
+        elif len(self.axes) != len(coordinates):
+            raise ValueError()
+        else:
+            p = []
+            for i in xrange(len(self.axes)):
+                p.append(self.axes[i].value2index(coordinates[i]))
+            self.position = p
+            
+    coordinates = property(lambda s: s._get_coordinates(), \
+                           lambda s,v: s._set_coordinates(v))
+    
     def connect(self, ax):
         super(DraggablePatchBase, self).connect(ax)
         canvas = ax.figure.canvas
         self.cids.append(
-            canvas.mpl_connect('motion_notify_event', self.onmousemove))
+            canvas.mpl_connect('motion_notify_event', self._onmousemove))
         self.cids.append(canvas.mpl_connect('pick_event', self.onpick))
         self.cids.append(canvas.mpl_connect(
             'button_release_event', self.button_release))
@@ -254,10 +292,10 @@ class ResizableDraggablePatchBase(DraggablePatchBase):
     size = property(lambda s: s._get_size(), lambda s,v: s._set_size(v))
 
     def increase_size(self):
-        self._set_size(self._size + 1)
+        self._set_size(np.array(self.size) + 1)
 
     def decrease_size(self):
-        self._set_size(self._size - 1)
+        self._set_size(np.array(self.size) - 1)
             
     def _size_changed(self):
         self.events.resized.trigger(self)
@@ -337,7 +375,7 @@ class Patch2DBase(ResizableDraggablePatchBase):
             picker=True,)
 
     def _get_patch_xy(self):
-        return self.get_coordinates() - self._get_size_in_axes() / 2.
+        return self.coordinates - self._get_size_in_axes() / 2.
             
     def _get_patch_bounds(self):
         # l,b,w,h
@@ -364,7 +402,7 @@ class DraggableSquare(Patch2DBase):
     def __init__(self, axes_manager):
         super(DraggableSquare, self).__init__(axes_manager)
                                             
-    def onmousemove(self, event):
+    def _onmousemove(self, event):
         'on mouse motion move the patch if picked'
         if self.picked is True and event.inaxes:
             ix = self.axes[0].value2index(event.xdata)
@@ -554,7 +592,7 @@ class ResizableDraggableRectangle(Patch2DBase):
     # --- End internals that trigger events ---
 
     def _get_patch_xy(self):
-        coordinates = np.array(self.get_coordinates())
+        coordinates = np.array(self.coordinates)
         axsize = self._get_size_in_axes()
         return coordinates - np.array(axsize) / (2.0 * self._size)
 
@@ -709,7 +747,7 @@ class ResizableDraggableRectangle(Patch2DBase):
             self.pick_offset = (ix-p[0], iy-p[1])
             self.pick_on_frame = False
         
-    def onmousemove(self, event):
+    def _onmousemove(self, event):
         'on mouse motion draw the patch if picked'
         if self.picked is True and event.inaxes:
             xaxis = self.axes[0]
@@ -777,13 +815,13 @@ class DraggableHorizontalLine(DraggablePatchBase):
 
     def _update_patch_position(self):
         if self.is_on() and self.patch is not None:
-            self.patch.set_ydata(self.get_coordinates()[0])
+            self.patch.set_ydata(self.coordinates[0])
             self.draw_patch()
 
     def _set_patch(self):
         ax = self.ax
         self.patch = ax.axhline(
-            self.get_coordinates()[0],
+            self.coordinates[0],
             color=self.color,
             picker=5)
 
@@ -796,12 +834,12 @@ class DraggableHorizontalLine(DraggablePatchBase):
 class DraggableVerticalLine(DraggablePatchBase):
     def _update_patch_position(self):
         if self.is_on() and self.patch is not None:
-            self.patch.set_xdata(self.get_coordinates()[0])
+            self.patch.set_xdata(self.coordinates[0])
             self.draw_patch()
 
     def _set_patch(self):
         ax = self.ax
-        self.patch = ax.axvline(self.get_coordinates()[0],
+        self.patch = ax.axvline(self.coordinates[0],
                                 color=self.color,
                                 picker=5)
 
@@ -822,7 +860,7 @@ class DraggableLabel(DraggablePatchBase):
 
     def _update_patch_position(self):
         if self.is_on() and self.patch is not None:
-            self.patch.set_x(self.get_coordinates()[0])
+            self.patch.set_x(self.coordinates[0])
             self.draw_patch()
 
     def _set_patch(self):
@@ -830,7 +868,7 @@ class DraggableLabel(DraggablePatchBase):
         trans = transforms.blended_transform_factory(
             ax.transData, ax.transAxes)
         self.patch = ax.text(
-            self.get_coordinates()[0],
+            self.coordinates[0],
             self.y,  # Y value in axes coordinates
             self.string,
             color=self.text_color,
@@ -839,6 +877,264 @@ class DraggableLabel(DraggablePatchBase):
             horizontalalignment='right',
             bbox=self.bbox,
             animated=self.blit)
+
+class DraggableResizable2DLine(ResizableDraggablePatchBase):
+    """
+    NOTE: This widget's internal coordinates does not lock to axes points.
+    NOTE: The 'size' property cooresponds to line segment lengths (in data 
+    coordinates).
+    """
+    FUNC_NONE = 0
+    FUNC_MOVE = 1
+    FUNC_RESIZE = 2
+    FUNC_ROTATE = 4
+    FUNC_A = 32
+    FUNC_B = 64
+    
+    def __init__(self, axes_manager):
+        super(DraggableResizable2DLine, self).__init__(axes_manager)        
+        self._pos = np.array([[0, 0], [0, 0]])
+        self._size = np.array([[0, 0]])
+        self.linewidth = 1
+        self.radius_move = self.radius_resize = 5
+        self.radius_rotate = 10
+        self.func = self.FUNC_NONE
+        self._prev_pos = None
+        self._rotate_orig = None
+        
+        # Set default axes
+        if self.axes_manager is not None:
+            if self.axes_manager.navigation_dimension > 1:
+                self.axes = self.axes_manager.navigation_axes[0:2]
+            else:
+                self.axes = self.axes_manager.signal_axes[0:2]
+    
+    def connect_navigate(self):
+        raise NotImplementedError("Lines cannot be used to navigate yet")
+        
+    def _get_position(self):
+        ret = tuple()
+        for i in xrange(np.shape(self._pos)[0]):
+            ret += (tuple(self.axes[i].value2index(self._pos[i,:])), )
+        return ret # Don't pass reference, and make it clear
+        
+    def _set_position(self, value):
+        value = self._validate_pos(np.array(value))
+        if np.any(self._pos != value):
+            c = []
+            for i in xrange(len(self.axes)):
+                c.append(self.axes[i].index2value(value[:,i]))
+            self.coordinates = np.array(c).T
+            
+    def _validate_pos(self, pos):
+        """Make sure all points of 'pos' are within axis bounds.
+        """
+        ndim = np.shape(pos)[1]
+        if ndim != len(self.axes):
+            raise ValueError()
+        for i in xrange(ndim):
+            if not np.all((self.axes[i].low_index <= pos[:,i]) & \
+                          (pos[:,i] <= self.axes[i].high_index)):
+                raise ValueError()
+        return pos
+        
+    def _set_size(self, value):
+        nsizes = np.shape(self._pos)[0]-1
+        # Calc position from sizes
+        if np.size(value) == 1:
+            value = np.repeat(value, nsizes)
+        
+        if np.any(self._size != value):
+            v = np.diff(self._pos, axis=0)
+            # Get offsets from resizing segments
+            dv = v*np.array(value)/np.linalg.norm(v, axis=1) - v
+            # Use initial pos as starting point
+            p = self._pos.copy()
+            p[1:] += np.cumsum(dv, axis=0) # Shift all positions cumulatively
+            self.coordinates = p    # Handles validation correctly
+                                    # and calls _pos_changed()
+            
+    def _get_coordinates(self):
+        return self._pos.copy()
+    
+    def _set_coordinates(self, coordinates):
+        coordinates = self._validate_coords(coordinates)
+        if np.any(self._pos != coordinates):
+            self._pos = np.array(coordinates)
+            self._pos_changed()
+    
+    def _validate_coords(self, coords):
+        """Make sure all points of 'pos' are within axis bounds.
+        """
+        ndim = np.shape(coords)[1]
+        if ndim != len(self.axes):
+            raise ValueError()
+        for i in xrange(ndim):
+            ax = self.axes[i]
+            coords[:,i] = np.maximum(coords[:,i], ax.low_value - 0.5*ax.scale)
+            coords[:,i] = np.minimum(coords[:,i], ax.high_value + 0.5*ax.scale)
+        return coords
+            
+    def _pos_changed(self):
+        self.events.moved.trigger(self)
+        self.events.resized.trigger(self)
+        self.events.changed.trigger(self)
+        self._update_patch_geometry()
+
+    def _get_size_in_axes(self):
+        return np.linalg.norm(np.diff(self.coordinates, axis=0), axis=1)
+        
+    def get_centre(self):
+        return np.mean(self._pos, axis=0)
+        
+    def _update_patch_position(self):
+        self._update_patch_geometry()
+
+    def _update_patch_size(self):
+        self._update_patch_geometry()
+    
+    def _update_patch_geometry(self):
+        if self.is_on() and self.patch is not None:
+            self.patch.set_data(self.coordinates.T)
+            self.draw_patch()
+
+    def _set_patch(self):
+        xy = self.coordinates
+        max_r = max(self.radius_move, self.radius_resize, 
+                    self.radius_rotate)
+        self.patch, = self.ax.plot(
+            xy[:,0], xy[:,1],
+            linestyle='-',
+            animated=self.blit,
+            lw=self.linewidth,
+            c=self.color,
+            picker=max_r,)
+        self.ax.autoscale(tight=True)
+
+            
+    def get_vertex(self, event):
+        if self.func & self.FUNC_A:
+            return 0
+        elif self.func & self.FUNC_B:
+            return 1
+        else:
+            return None
+            
+    def get_func_from_pos(self, cx, cy):
+        """
+        Get interaction function from pixel position (cx,cy)
+        """
+        if self.patch is None:
+            return self.FUNC_NONE
+            
+        trans = self.ax.transData
+        p = np.array(trans.transform(self.coordinates))
+        
+        # Calculate the distances to the vertecies, and find nearest one
+        r2 = np.sum(np.power(p - np.array((cx,cy)), 2), axis=1)
+        mini = np.argmin(r2)
+        minr = r2[mini]
+        del r2
+        # Check for resize: Click within radius_resize from edge points
+        radius = self.radius_resize
+        if minr <= radius ** 2:
+            ret = self.FUNC_RESIZE
+            ret |= self.FUNC_A if mini == 0 else self.FUNC_B
+            return ret
+        
+        # Check for rotate: Click within radius_rotate on outside of edgepts
+        radius = self.radius_rotate
+        A = p[0,:]
+        B = p[1,:]  # Assumes one segment only.
+        c = np.array((cx,cy))
+        t = np.dot(c-A, B-A)    # t[0]: A->click, t[1]: A->B
+        bas = np.linalg.norm(B-A)**2
+        if minr <= radius**2:   # If within rotate radius
+            if t < 0.0 and mini == 0:   # "Before" A on the line
+                return self.FUNC_ROTATE | self.FUNC_A
+            elif t > bas and mini == 1: # "After" B on the line
+                return self.FUNC_ROTATE | self.FUNC_B
+
+        # Check for move: Click within radius_move from any pt on line          
+        radius = self.radius_move
+        if t > 0 and t < bas:
+            # A + (t/bas)*(B-A) is closest point on line
+            if np.linalg.norm(A + (t/bas)*(B-A) - c) < radius:
+                return self.FUNC_MOVE
+        return self.FUNC_NONE
+            
+    def onpick(self, event):
+        super(DraggableResizable2DLine, self).onpick(event)
+        if self.picked:
+            me = event.mouseevent
+            self.func = self.get_func_from_pos(me.x, me.y)
+            self._prev_pos = [me.xdata, me.ydata]
+            if self.func & self.FUNC_ROTATE:
+                self._rotate_orig = self.coordinates
+    
+    def _onmousemove(self, event):
+        if self.picked is True:
+            if self.func & self.FUNC_MOVE and event.inaxes:
+                self.move(event)
+            elif self.func & self.FUNC_RESIZE and event.inaxes:
+                self.resize(event)
+            elif self.func & self.FUNC_ROTATE:
+                self.rotate(event)
+    
+    def get_diff(self, event):
+        if event.xdata is None:
+            dx = 0
+        else:
+            dx = event.xdata - self._prev_pos[0]
+        if event.ydata is None:
+            dy = 0
+        else:
+            dy = event.ydata - self._prev_pos[1]
+        return np.array((dx, dy))
+            
+    def move(self, event):
+        dx = self.get_diff(event)
+        self.coordinates += dx
+        self._prev_pos += dx
+            
+    def resize(self, event):
+        ip = self.get_vertex(event)
+        dx = self.get_diff(event)
+        p = self.coordinates
+        p[ip,0:2] += dx
+        self.coordinates = p
+        self._prev_pos += dx
+        
+    def rotate(self, event):
+        if None in (event.xdata, event.ydata):
+            return
+        # Rotate does not update last pos, to avoid inaccuracies by deltas
+        dx = self.get_diff(event)
+        
+        # Rotation should happen in screen coordinates, as anything else will
+        # mix units
+        trans = self.ax.transData
+        scr_zero = np.array(trans.transform((0,0)))
+        dx = np.array(trans.transform(dx)) - scr_zero
+        
+        # Get center point = center of original line
+        c = trans.transform(np.mean(self._rotate_orig, axis=0))
+        
+        # Figure out theta
+        v1 = (event.x, event.y) - c     # Center to mouse
+        v2 = v1 - dx                    # Center to start pos
+        theta = angle_between(v2, v1)   # Rotation between start and mouse
+
+        if event.key is not None and 'shift' in event.key:
+            base = 30 * np.pi / 180
+            theta = base * round(float(theta)/base)
+        
+        # vector from points to center
+        w1 = c - trans.transform(self._rotate_orig)  
+        # rotate into w2 for next point
+        w2 = np.array((w1[:,0]*np.cos(theta) - w1[:,1]*np.sin(theta),
+                       w1[:,1]*np.cos(theta) + w1[:,0]*np.sin(theta)))
+        self.coordinates = trans.inverted().transform(c + np.rot90(w2))
 
 
 class Scale_Bar():
@@ -1019,7 +1315,7 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
             
                                         
     def _get_range(self):
-        c = self.get_coordinates()[0]
+        c = self.coordinates[0]
         w = self._get_size_in_axes()[0]
         c -= w / (2.0 * self._size[0])
         return (c, c + w)
