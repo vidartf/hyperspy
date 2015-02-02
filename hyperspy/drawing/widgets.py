@@ -881,8 +881,7 @@ class DraggableLabel(DraggablePatchBase):
 class DraggableResizable2DLine(ResizableDraggablePatchBase):
     """
     NOTE: This widget's internal coordinates does not lock to axes points.
-    NOTE: The 'size' property cooresponds to line segment lengths (in data 
-    coordinates).
+    NOTE: The 'size' property corresponds to line width.
     """
     FUNC_NONE = 0
     FUNC_MOVE = 1
@@ -894,13 +893,14 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
     def __init__(self, axes_manager):
         super(DraggableResizable2DLine, self).__init__(axes_manager)        
         self._pos = np.array([[0, 0], [0, 0]])
-        self._size = np.array([[0, 0]])
+        self._size = np.array([1])
         self.linewidth = 1
         self.radius_move = self.radius_resize = 5
         self.radius_rotate = 10
         self.func = self.FUNC_NONE
         self._prev_pos = None
         self._rotate_orig = None
+        self._width_indicators = []
         
         # Set default axes
         if self.axes_manager is not None:
@@ -937,22 +937,6 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
                           (pos[:,i] <= self.axes[i].high_index)):
                 raise ValueError()
         return pos
-        
-    def _set_size(self, value):
-        nsizes = np.shape(self._pos)[0]-1
-        # Calc position from sizes
-        if np.size(value) == 1:
-            value = np.repeat(value, nsizes)
-        
-        if np.any(self._size != value):
-            v = np.diff(self._pos, axis=0)
-            # Get offsets from resizing segments
-            dv = v*np.array(value)/np.linalg.norm(v, axis=1) - v
-            # Use initial pos as starting point
-            p = self._pos.copy()
-            p[1:] += np.cumsum(dv, axis=0) # Shift all positions cumulatively
-            self.coordinates = p    # Handles validation correctly
-                                    # and calls _pos_changed()
             
     def _get_coordinates(self):
         return self._pos.copy()
@@ -974,14 +958,11 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
             coords[:,i] = np.maximum(coords[:,i], ax.low_value - 0.5*ax.scale)
             coords[:,i] = np.minimum(coords[:,i], ax.high_value + 0.5*ax.scale)
         return coords
-            
-    def _pos_changed(self):
-        self.events.moved.trigger(self)
-        self.events.resized.trigger(self)
-        self.events.changed.trigger(self)
-        self._update_patch_geometry()
 
     def _get_size_in_axes(self):
+        """Returns line length in axes coordinates. Requires units on all axes
+        to be the same to make any physical sense.
+        """
         return np.linalg.norm(np.diff(self.coordinates, axis=0), axis=1)
         
     def get_centre(self):
@@ -997,6 +978,9 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         if self.is_on() and self.patch is not None:
             self.patch.set_data(self.coordinates.T)
             self.draw_patch()
+            if self.size[0] > 1:
+                pass
+                #TODO: Update width indicators
 
     def _set_patch(self):
         xy = self.coordinates
@@ -1008,7 +992,19 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
             animated=self.blit,
             lw=self.linewidth,
             c=self.color,
+            marker='s',
+            markersize = self.radius_resize,
+            mew=0.1,
+            mfc='lime',
             picker=max_r,)
+        if self.size[0] > 1:
+            #TODO: Draw width indicators
+            pass
+#            trans = self.ax.transData
+#            p = np.array(trans.transform(self.coordinates))
+#            
+#            w1 = self.ax.plot(xy[:,0])
+#            self._width_indicators
         self.ax.autoscale(tight=True)
 
             
@@ -1456,7 +1452,7 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         self.cids.append(
             self.canvas.mpl_connect('draw_event', self.update_background))
         self.rect.set_visible(True)
-        self.rect.contains = self._contains
+        self.rect.contains = self.contains
         self.update()
 
     def contains(self, mouseevent):
