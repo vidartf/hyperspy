@@ -22,37 +22,67 @@ import matplotlib.pyplot as plt
 import matplotlib.widgets
 import matplotlib.transforms as transforms
 import numpy as np
-import traits
 
 from utils import on_figure_window_close
 from hyperspy.misc.math_tools import closest_nice_number
+from hyperspy.events import Events, Event
+
+def unit_vector(vector):
+    """ Returns the unit vector of the vector.  """
+    return vector / np.linalg.norm(vector)
+
+def angle_between(v1, v2):
+    """ Returns the angle in radians between @D vectors 'v1' and 'v2'::
+
+            >>> angle_between((1, 0), (0, 1))
+            1.5707963267948966
+            >>> angle_between((1, 0), (1, 0))
+            0.0
+            >>> angle_between((1, 0), (-1, 0))
+            3.141592653589793
+    """
+    v1_u = unit_vector(v1)
+    v2_u = unit_vector(v2)
+    angle = np.arctan2(v2_u[1],v2_u[0]) - np.arctan2(v1_u[1],v1_u[0])
+    #angle = np.arccos(np.dot(v1_u, v2_u))
+    if np.isnan(angle):
+        if (v1_u == v2_u).all():
+            return 0.0
+        else:
+            return np.pi
+    return angle
 
 
-class DraggablePatch(object):
+class InteractivePatchBase(object):
 
     """
     """
 
     def __init__(self, axes_manager=None):
         """
-        Add a cursor to ax.
+        Add a patch to ax.
         """
         self.axes_manager = axes_manager
+        self.axes = list()
         self.ax = None
         self.picked = False
-        self.size = 1.
+        self._size = 1.
         self.color = 'red'
         self.__is_on = True
         self.patch = None
         self.cids = list()
         self.blit = True
         self.background = None
+        self.events = Events()
+        self.events.changed = Event()
+        self.events.closed = Event()
+        self._navigating = False
 
     def is_on(self):
         return self.__is_on
 
     def set_on(self, value):
-        if value is not self.is_on():
+        if value is not self.is_on() and self.ax is not None:
             if value is True:
                 self._add_patch_to(self.ax)
                 self.connect(self.ax)
@@ -65,13 +95,13 @@ class DraggablePatch(object):
                     if self.patch in container:
                         container.remove(self.patch)
                 self.disconnect(self.ax)
-            self.__is_on = value
             try:
-                self.ax.figure.canvas.draw()
+                self.draw_patch()
             except:  # figure does not exist
                 pass
-            else:
+            if value is False:
                 self.ax = None
+        self.__is_on = value
 
     def _set_patch(self):
         pass
@@ -83,6 +113,11 @@ class DraggablePatch(object):
         self.patch.set_animated(hasattr(ax, 'hspy_fig'))
 
     def set_mpl_ax(self, ax):
+        if ax is self.ax:
+            return  # Do nothing
+        # Disconnect from previous axes if set
+        if self.ax is not None and self.is_on():
+            self.disconnect(self.ax)
         self.ax = ax
         canvas = ax.figure.canvas
         if self.is_on() is True:
@@ -91,14 +126,18 @@ class DraggablePatch(object):
             canvas.draw()
 
     def connect(self, ax):
-        canvas = ax.figure.canvas
-        self.cids.append(
-            canvas.mpl_connect('motion_notify_event', self._onmousemove))
-        self.cids.append(canvas.mpl_connect('pick_event', self.onpick))
-        self.cids.append(canvas.mpl_connect(
-            'button_release_event', self.button_release))
-        self.axes_manager.connect(self._update_patch_position)
         on_figure_window_close(ax.figure, self.close)
+        
+    def connect_navigate(self):
+        self.axes_manager.connect(self._on_navigate)
+        self._navigating = True
+        
+    def disconnect_navigate(self):
+        self.axes_manager.disconnect(self._on_navigate)
+        self._navigating = False
+        
+    def _on_navigate(self, obj, name, old, new):
+        pass    # Implement in subclass!
 
     def disconnect(self, ax):
         for cid in self.cids:
@@ -106,10 +145,109 @@ class DraggablePatch(object):
                 ax.figure.canvas.mpl_disconnect(cid)
             except:
                 pass
-        self.axes_manager.disconnect(self._update_patch_position)
+        if self._navigating:
+            self.disconnect_navigate()
 
     def close(self, window=None):
         self.set_on(False)
+        self.events.closed.trigger(self)
+
+    def draw_patch(self, *args):
+        if hasattr(self.ax, 'hspy_fig'):
+            self.ax.hspy_fig._draw_animated()
+        else:
+            self.ax.figure.canvas.draw_idle()
+        
+    def _v2i(self, axis, v):
+        try:
+            return axis.value2index(v)
+        except ValueError:
+            if v > axis.high_value:
+                return axis.high_index+1
+            elif v < axis.low_value:
+                return axis.low_index
+            else:
+                raise
+            
+class DraggablePatchBase(InteractivePatchBase):
+    
+    def __init__(self, axes_manager):
+        super(DraggablePatchBase, self).__init__(axes_manager)
+        self._pos = np.array([0])
+        self.events.moved = Event()
+        
+        # Set default axes
+        if self.axes_manager is not None:
+            if self.axes_manager.navigation_dimension > 0:
+                self.axes = self.axes_manager.navigation_axes[0:1]
+            else:
+                self.axes = self.axes_manager.signal_axes[0:1]
+        
+    def _get_position(self):
+        return tuple(self._pos.tolist()) # Don't pass reference, and make it clear
+        
+    def _set_position(self, value):
+        value = self._validate_pos(value)
+        if np.any(self._pos != value):
+            self._pos = np.array(value)
+            self._pos_changed()
+
+    position = property(lambda s: s._get_position(), \
+                        lambda s,v: s._set_position(v))
+        
+    def _pos_changed(self):
+        if self._navigating:
+            self.disconnect_navigate()
+            for i in xrange(len(self.axes)):
+                self.axes[i].index = self.position[i]
+            self.connect_navigate()
+        self.events.moved.trigger(self)
+        self.events.changed.trigger(self)
+        self._update_patch_position()
+            
+    def _validate_pos(self, pos):
+        if len(pos) != len(self.axes):
+            raise ValueError()
+        for i in xrange(len(pos)):
+            if not (self.axes[i].low_index <= pos[i] <= self.axes[i].high_index):
+                raise ValueError()
+        return pos
+            
+    def _get_coordinates(self):
+        coord = []
+        for i in xrange(len(self.axes)):
+            coord.append(self.axes[i].index2value(self.position[i]))
+        return np.array(coord)
+    
+    def _set_coordinates(self, coordinates):
+        if np.ndim(coordinates) == 0 and len(self.axes) == 1:
+            self.position = [self.axes[0].value2index(coordinates)]
+        elif len(self.axes) != len(coordinates):
+            raise ValueError()
+        else:
+            p = []
+            for i in xrange(len(self.axes)):
+                p.append(self.axes[i].value2index(coordinates[i]))
+            self.position = p
+            
+    coordinates = property(lambda s: s._get_coordinates(), \
+                           lambda s,v: s._set_coordinates(v))
+    
+    def connect(self, ax):
+        super(DraggablePatchBase, self).connect(ax)
+        canvas = ax.figure.canvas
+        self.cids.append(
+            canvas.mpl_connect('motion_notify_event', self._onmousemove))
+        self.cids.append(canvas.mpl_connect('pick_event', self.onpick))
+        self.cids.append(canvas.mpl_connect(
+            'button_release_event', self.button_release))
+        
+    def _on_navigate(self, obj, name, old, new):
+        if obj in self.axes:
+            i = self.axes.index(obj)
+            p = list(self.position)
+            p[i] = new
+            self.position = p    # Use position to trigger events
 
     def onpick(self, event):
         self.picked = (event.artist is self.patch)
@@ -121,6 +259,9 @@ class DraggablePatch(object):
     def _update_patch_position(self):
         """This method must be provided by the subclass"""
         pass
+    
+    def _update_patch_geometry(self):
+        self._update_patch_position()
 
     def button_release(self, event):
         'whenever a mouse button is released'
@@ -129,31 +270,51 @@ class DraggablePatch(object):
         if self.picked is True:
             self.picked = False
 
-    def draw_patch(self, *args):
-        if hasattr(self.ax, 'hspy_fig'):
-            self.ax.hspy_fig._draw_animated()
-        else:
-            self.ax.figure.canvas.draw_idle()
 
-
-class ResizebleDraggablePatch(DraggablePatch):
+class ResizableDraggablePatchBase(DraggablePatchBase):
 
     def __init__(self, axes_manager):
-        DraggablePatch.__init__(self, axes_manager)
-        self.size = 1.
-
-    def set_size(self, size):
-        self.size = size
-        self._update_patch_size()
+        super(ResizableDraggablePatchBase, self).__init__(axes_manager)
+        self._size = np.array([1])
+        self.events.resized = Event()
+        
+    def _get_size(self):
+        return tuple(self._size.tolist())
+        
+    def _set_size(self, value):
+        value = np.minimum(value, [ax.size for ax in self.axes])
+        value = np.maximum(value, 1)
+        if np.any(self._size != value):
+            self._size = value
+            self._size_changed()
+    
+    size = property(lambda s: s._get_size(), lambda s,v: s._set_size(v))
 
     def increase_size(self):
-        self.set_size(self.size + 1)
+        self._set_size(np.array(self.size) + 1)
 
     def decrease_size(self):
-        if self.size > 1:
-            self.set_size(self.size - 1)
+        self._set_size(np.array(self.size) - 1)
+            
+    def _size_changed(self):
+        self.events.resized.trigger(self)
+        self.events.changed.trigger(self)
+        self._update_patch_size()
+
+    def _get_size_in_axes(self):
+        s = list()
+        for i in xrange(len(self.axes)):
+            s.append(self.axes[i].scale * self._size[i])
+        return np.array(s)
+    
+    def get_centre(self):
+        return self._pos + self._size / 2.0
 
     def _update_patch_size(self):
+        """This method must be provided by the subclass"""
+        pass
+    
+    def _update_patch_geometry(self):
         """This method must be provided by the subclass"""
         pass
 
@@ -164,141 +325,541 @@ class ResizebleDraggablePatch(DraggablePatch):
             self.decrease_size()
 
     def connect(self, ax):
-        DraggablePatch.connect(self, ax)
+        super(ResizableDraggablePatchBase, self).connect(ax)
         canvas = ax.figure.canvas
         self.cids.append(canvas.mpl_connect('key_press_event',
                                             self.on_key_press))
+            
 
-
-class DraggableSquare(ResizebleDraggablePatch):
-
+    def _apply_changes(self, old_size, old_position):
+        moved = self.position != old_position
+        resized = self.size != old_size
+        if moved:
+            if self._navigating:
+                self.disconnect_navigate()
+                for i in xrange(len(self.axes)):
+                    self.axes[i].index = self.position[i]
+                self.connect_navigate()
+            self.events.moved.trigger(self)
+        if resized:
+            self.events.resized.trigger(self)
+        if moved or resized:
+            self.events.changed.trigger(self)
+            self._update_patch_geometry()
+    
+                                            
+class Patch2DBase(ResizableDraggablePatchBase):
     def __init__(self, axes_manager):
-        DraggablePatch.__init__(self, axes_manager)
-
+        super(Patch2DBase, self).__init__(axes_manager)
+        self._pos = np.array([0, 0])
+        self._size = np.array([1, 1])
+        self.border_thickness = 2
+        
+        # Set default axes
+        if self.axes_manager is not None:
+            if self.axes_manager.navigation_dimension > 1:
+                self.axes = self.axes_manager.navigation_axes[0:2]
+            else:
+                self.axes = self.axes_manager.signal_axes[0:2]
+            
     def _set_patch(self):
-        self.calculate_size()
-        self.calculate_position()
+        xy = self._get_patch_xy()
+        xs, ys = self._get_size_in_axes()
         self.patch = plt.Rectangle(
-            self._position, self._xsize, self._ysize,
+            xy, xs, ys,
             animated=self.blit,
             fill=False,
-            lw=2,
+            lw=self.border_thickness,
             ec=self.color,
             picker=True,)
 
-    def calculate_size(self):
-        xaxis = self.axes_manager.navigation_axes[0]
-        yaxis = self.axes_manager.navigation_axes[1]
-        self._xsize = xaxis.scale * self.size
-        self._ysize = yaxis.scale * self.size
-
-    def calculate_position(self):
-        coordinates = np.array(self.axes_manager.coordinates[:2])
-        self._position = coordinates - (
-            self._xsize / 2., self._ysize / 2.)
-
-    def _update_patch_size(self):
-        self.calculate_size()
-        self.patch.set_width(self._xsize)
-        self.patch.set_height(self._ysize)
-        self._update_patch_position()
-
+    def _get_patch_xy(self):
+        return self.coordinates - self._get_size_in_axes() / 2.
+            
+    def _get_patch_bounds(self):
+        # l,b,w,h
+        xy = self._get_patch_xy()
+        xs, ys = self._get_size_in_axes()
+        return (xy[0], xy[1], xs, ys)
+    
     def _update_patch_position(self):
-        self.calculate_position()
-        self.patch.set_xy(self._position)
-        self.draw_patch()
-
-    def _onmousemove(self, event):
-        'on mouse motion draw the cursor if picked'
-        if self.picked is True and event.inaxes:
-            xaxis = self.axes_manager.navigation_axes[0]
-            yaxis = self.axes_manager.navigation_axes[1]
-            wxindex = xaxis.value2index(event.xdata)
-            wyindex = yaxis.value2index(event.ydata)
-            wxindex = xaxis.value2index(event.xdata)
-            wyindex = yaxis.value2index(event.ydata)
-            if self.axes_manager.indices[1] != wyindex:
-                try:
-                    yaxis.index = wyindex
-                except traits.api.TraitError:
-                    # Index out of range, we do nothing
-                    pass
-
-            if self.axes_manager.indices[0] != wxindex:
-                try:
-                    xaxis.index = wxindex
-                except traits.api.TraitError:
-                    # Index out of range, we do nothing
-                    pass
-
-
-class DraggableHorizontalLine(DraggablePatch):
+        if self.is_on() and self.patch is not None:
+            self.patch.set_xy(self._get_patch_xy())
+            self.draw_patch()
+            
+    def _update_patch_size(self):
+        self._update_patch_geometry()
+    
+    def _update_patch_geometry(self):
+        if self.is_on() and self.patch is not None:
+            self.patch.set_bounds(*self._get_patch_bounds())
+            self.draw_patch()
+        
+                                            
+class DraggableSquare(Patch2DBase):
 
     def __init__(self, axes_manager):
-        DraggablePatch.__init__(self, axes_manager)
-        # Despise the bug, we use blit for this one because otherwise the
-        # it gets really slow
+        super(DraggableSquare, self).__init__(axes_manager)
+                                            
+    def _onmousemove(self, event):
+        'on mouse motion move the patch if picked'
+        if self.picked is True and event.inaxes:
+            ix = self.axes[0].value2index(event.xdata)
+            iy = self.axes[1].value2index(event.ydata)
+            self.position = (ix, iy)
+
+class ResizableDraggableRectangle(Patch2DBase):
+    
+    def __init__(self, axes_manager, resizers=True):
+        super(ResizableDraggableRectangle, self).__init__(axes_manager)
+        self.pick_on_frame = False
+        self.pick_offset = (0,0)
+        self.resize_color = 'lime'
+        self.resize_pixel_size = (5,5)  # Set to None to make one data pixel
+        self._resizers = resizers
+        self._resizer_handles = []
+    
+    # --------- External interface ---------
+    @property
+    def resizers(self):
+        return self._resizers
+        
+    @resizers.setter
+    def resizers(self, value):
+        if self._resizers != value:
+            self._resizers = value
+            
+    def _parse_bounds_args(self, args, kwargs):
+        if len(args) == 1:
+            return args[0]
+        elif len(args) == 4:
+           return args
+        elif len(kwargs) == 1 and kwargs.has_key('bounds'):
+            return kwargs.values()[0]
+        else:
+            x = kwargs.pop('x', kwargs.pop('left', self._pos[0]))
+            y = kwargs.pop('y', kwargs.pop('top', self._pos[1]))
+            if kwargs.has_key('right'):
+                w = kwargs.pop('right') - x
+            else:
+                w = kwargs.pop('w', kwargs.pop('width', self._size[0]))
+            if kwargs.has_key('bottom'):
+                h = kwargs.pop('bottom') - y
+            else:
+                h = kwargs.pop('h', kwargs.pop('height', self._size[1])) 
+            return x, y, w, h
+            
+    def set_ibounds(self, *args, **kwargs):
+        """
+        Set bounds by indices. Bounds can either be specified in order left,
+        bottom, width, height; or by keywords:
+         * 'bounds': tuple (left, top, width, height)
+         OR
+         * 'x'/'left'
+         * 'y'/'top'
+         * 'w'/'width', alternatively 'right'
+         * 'h'/'height', alternatively 'bottom'
+        If specifying with keywords, any unspecified dimensions will be kept
+        constant (note: width/height will be kept, not right/bottom).
+        """
+
+        x, y, w, h = self._parse_bounds_args(args, kwargs)
+
+        if not (self.axes[0].low_index <= x <= self.axes[0].high_index):
+            raise ValueError()
+        if not (self.axes[1].low_index <= y <= self.axes[1].high_index):
+            raise ValueError()
+        if not (self.axes[0].low_index <= x+w <= self.axes[0].high_index):
+            raise ValueError()
+        if not (self.axes[1].low_index <= y+h <= self.axes[1].high_index):
+            raise ValueError()
+
+        old_position, old_size = self.position, self.size
+        self._pos = np.array([x, y])
+        self._size = np.array([w, h])
+        self._apply_changes(old_size=old_size, old_position=old_position)
+
+    def set_bounds(self, *args, **kwargs):
+        """
+        Set bounds by values. Bounds can either be specified in order left,
+        bottom, width, height; or by keywords:
+         * 'bounds': tuple (left, top, width, height)
+         OR
+         * 'x'/'left'
+         * 'y'/'top'
+         * 'w'/'width', alternatively 'right' (x+w)
+         * 'h'/'height', alternatively 'bottom' (y+h)
+        If specifying with keywords, any unspecified dimensions will be kept
+        constant (note: width/height will be kept, not right/bottom).
+        """
+
+        x, y, w, h = self._parse_bounds_args(args, kwargs)
+        ix = self.axes[0].value2index(x)
+        iy = self.axes[1].value2index(y)
+        w = self._v2i(self.axes[0], x+w) - ix
+        h = self._v2i(self.axes[1], y+h) - iy
+            
+        old_position, old_size = self.position, self.size
+        self._pos = np.array([ix, iy])
+        self._size = np.array([w, h])
+        self._apply_changes(old_size=old_size, old_position=old_position)
+        
+    def _validate_pos(self, value):
+        value = (min(value[0], self.axes[0].high_index - self._size[0] + 1),
+                 min(value[1], self.axes[1].high_index - self._size[1] + 1))
+        return super(ResizableDraggableRectangle, self)._validate_pos(value)
+    
+    @property
+    def width(self):
+        return self._size[0]
+        
+    @width.setter
+    def width(self, value):
+        if value == self._size[0]:
+            return
+        ix = self._pos[0] + value
+        if value <= 0 or \
+                not (self.axes[0].low_index <= ix <= self.axes[0].high_index):
+            raise ValueError()
+        self._set_a_size(0, value)
+    
+    @property
+    def height(self):
+        return self._size[1]
+        
+    @height.setter
+    def height(self, value):
+        if value == self._size[1]:
+            return
+        iy = self._pos[1] + value
+        if value <= 0 or \
+                not (self.axes[1].low_index <= iy <= self.axes[1].high_index):
+            raise ValueError()
+        self._set_a_size(1, value)
+    
+    
+    # --------- Internal functions ---------
+    
+    # --- Internals that trigger events ---
+    
+    def _set_size(self, value):
+        value = np.minimum(value, [ax.size for ax in self.axes])
+        value = np.maximum(value, 1)
+        if np.any(self._size != value):
+            self._size = value
+            self._validate_geometry()
+            self._size_changed()
+            
+    def _set_a_size(self, idx, value):
+        if self._size[idx] == value or value <= 0:
+            return
+        # If we are pushed "past" an edge, size towards it
+        if self._navigating and self.axes[idx].index > self.position[idx]:
+            if value < self._size[idx]:
+                self._pos[idx] += self._size[idx] - value
+        
+        self._size[idx] = value
+        self._validate_geometry()
+        self._size_changed()
+
+    def _increase_xsize(self):
+        self._set_a_size(0, self._size[0] + 1)
+
+    def _decrease_xsize(self):
+        if self._size[0] >= 2:
+            self._set_a_size(0, self._size[0] - 1)
+
+    def _increase_ysize(self):
+        self._set_a_size(1, self._size[1] + 1)
+
+    def _decrease_ysize(self):
+        if self._size[1] >= 2:
+            self._set_a_size(1, self._size[1] - 1)
+
+    def on_key_press(self, event):
+        if event.key == "x":
+            self._increase_xsize()
+        elif event.key == "c":
+            self._decrease_xsize()
+        elif event.key == "y":
+            self._increase_ysize()
+        elif event.key == "u":
+            self._decrease_ysize()
+        else:
+            super(ResizableDraggableRectangle, self).on_key_press(event)
+            
+    # --- End internals that trigger events ---
+
+    def _get_patch_xy(self):
+        coordinates = np.array(self.coordinates)
+        axsize = self._get_size_in_axes()
+        return coordinates - np.array(axsize) / (2.0 * self._size)
 
     def _update_patch_position(self):
-        if self.patch is not None:
-            self.patch.set_ydata(self.axes_manager.coordinates[0])
+        if self.is_on() and self.patch is not None:
+            self.patch.set_xy(self._get_patch_xy())
+            self._update_resizers()
+            self.draw_patch()
+        
+    def _update_patch_geometry(self):
+        if self.is_on() and self.patch is not None:
+            self.patch.set_bounds(*self._get_patch_bounds())
+            self._update_resizers()
+            self.draw_patch()
+        
+    # ------- Resizers code -------
+        
+    def _update_resizers(self):
+        pos = self._get_resizer_pos()
+        rsize = self._get_resizer_size()
+        for i, r in enumerate(self._resizer_handles):
+            r.set_xy(pos[i])
+            r.set_width(rsize[0])
+            r.set_height(rsize[1])
+
+    def _set_patch(self):
+        super(ResizableDraggableRectangle, self)._set_patch()
+            
+        self._resizer_handles = []
+        rsize = self._get_resizer_size()
+        pos = self._get_resizer_pos()
+        for i in xrange(4):
+            r = plt.Rectangle(pos[i], rsize[0], rsize[1], animated=self.blit,
+                              fill=True, lw=0, fc=self.resize_color, 
+                              picker=True,)
+            self._resizer_handles.append(r)
+        
+    def _set_resizers(self, value, ax):
+        if ax is not None:
+            if value:
+                for r in self._resizer_handles:
+                    ax.add_artist(r)
+                    r.set_animated(hasattr(ax, 'hspy_fig'))
+            else:
+                for container in [
+                        ax.patches,
+                        ax.lines,
+                        ax.artists,
+                        ax.texts]:
+                    for r in self._resizer_handles:
+                        if r in container:
+                            container.remove(r)
+                self._resizer_handles = []
+                self.draw_patch()
+
+    def _get_resizer_size(self):
+        invtrans = self.ax.transData.inverted()
+        if self.resize_pixel_size is None:
+            rsize = self._get_size_in_axes() / self._size
+        else:
+            rsize = np.abs(invtrans.transform(self.resize_pixel_size) -
+                        invtrans.transform((0, 0)))
+        return rsize
+        
+
+    def _get_resizer_pos(self):
+        """
+        Get the positions of the four resizer handles
+        """
+        invtrans = self.ax.transData.inverted()
+        border = self.border_thickness
+        # Transform the border thickness into data values
+        dl = np.abs(invtrans.transform((border, border)) -
+                        invtrans.transform((0, 0)))/2
+        rsize = self._get_resizer_size()
+        xs, ys = self._get_size_in_axes()
+
+        positions = []
+        rp = np.array(self._get_patch_xy())
+        p = rp - rsize + dl
+        positions.append(p)
+        p = rp + (xs - dl[0], -rsize[1] + dl[1])
+        positions.append(p)
+        p = rp + (-rsize[0] + dl[0], ys - dl[1])
+        positions.append(p)
+        p = rp + (xs - dl[0], ys - dl[1])
+        positions.append(p)
+        return positions
+                
+    def set_on(self, value):
+        if value is not self.is_on() and self.resizers:
+            self._set_resizers(value, self.ax)
+        super(ResizableDraggableRectangle, self).set_on(value)
+
+    def _add_patch_to(self, ax):
+        super(ResizableDraggableRectangle, self)._add_patch_to(ax)
+        if self.resizers:
+            self._set_resizers(True, ax)
+        
+    # ------- End resizers code -------
+        
+        
+    def _validate_geometry(self, x1=None, y1=None):
+        xaxis = self.axes[0]
+        yaxis = self.axes[1]
+        
+        # Make sure widget size is not larger than axes
+        self._size[0] = min(self._size[0], xaxis.size)
+        self._size[1] = min(self._size[1], yaxis.size)
+        
+        # Make sure x1/y1 is within bounds
+        if x1 is None:
+            x1 = self.position[0] # Get it if not supplied
+        elif x1 < xaxis.low_index:
+            x1 = xaxis.low_index
+        elif x1 > xaxis.high_index:
+            x1 = xaxis.high_index
+        
+        if y1 is None:
+            y1 = self.position[1]
+        elif y1 < yaxis.low_index:
+            y1 = yaxis.low_index
+        elif y1 > yaxis.high_index:
+            y1 = yaxis.high_index
+        
+        # Make sure x2/y2 is with upper bound.
+        # If not, keep dims, and change x1/y1!
+        x2 = x1 + self._size[0]
+        y2 = y1 + self._size[1]
+        if x2 > xaxis.high_index + 1:
+            x2 = xaxis.high_index + 1
+            x1 = x2 - self._size[0]
+        if y2 > yaxis.high_index + 1:
+            y2 = yaxis.high_index + 1
+            y1 = y2 - self._size[1]
+        
+        self._pos = np.array([x1, y1])
+        
+    def onpick(self, event):
+        super(ResizableDraggableRectangle, self).onpick(event)
+        if event.artist in self._resizer_handles:
+            corner = self._resizer_handles.index(event.artist)
+            self.pick_on_frame = corner
+            self.picked = True
+        elif self.picked:
+            x = event.mouseevent.xdata
+            y = event.mouseevent.ydata
+            dx, dy = self._get_size_in_axes() / self._size
+            ix = self._v2i(self.axes[0], x + 0.5*dx)
+            iy = self._v2i(self.axes[1], y + 0.5*dy)
+            p = self.position
+            self.pick_offset = (ix-p[0], iy-p[1])
+            self.pick_on_frame = False
+        
+    def _onmousemove(self, event):
+        'on mouse motion draw the patch if picked'
+        if self.picked is True and event.inaxes:
+            xaxis = self.axes[0]
+            yaxis = self.axes[1]
+            dx, dy = self._get_size_in_axes() / self._size
+            ix = self._v2i(xaxis, event.xdata + 0.5*dx)
+            iy = self._v2i(yaxis, event.ydata + 0.5*dy)
+            p = self.position
+            ibounds = [p[0], p[1], p[0] + self._size[0], p[1] + self._size[1]]
+
+            old_position, old_size = self.position, self.size
+            if self.pick_on_frame is not False:
+                posx = None
+                posy = None
+                corner = self.pick_on_frame
+                if corner % 2 == 0: # Left side start
+                    if ix > ibounds[2]:    # flipped to right
+                        posx = ibounds[2]
+                        self._size[0] = ix - ibounds[2]
+                        self.pick_on_frame += 1
+                    elif ix == ibounds[2]:
+                        posx = ix - 1
+                        self._size[0] = ibounds[2] - posx
+                    else:
+                        posx = ix
+                        self._size[0] = ibounds[2] - posx
+                else:   # Right side start
+                    if ix < ibounds[0]:  # Flipped to left
+                        posx = ix
+                        self._size[0] = ibounds[0] - posx
+                        self.pick_on_frame -= 1
+                    else:
+                        self._size[0] = ix - ibounds[0]
+                if corner // 2 == 0: # Top side start
+                    if iy > ibounds[3]:    # flipped to botton
+                        posy = ibounds[3]
+                        self._size[1] = iy - ibounds[3]
+                        self.pick_on_frame += 2
+                    elif iy == ibounds[3]:
+                        posy = iy - 1
+                        self._size[1] = ibounds[3] - posy
+                    else:
+                        posy = iy
+                        self._size[1] = ibounds[3] - iy
+                else:   # Bottom side start
+                    if iy < ibounds[1]:  # Flipped to top
+                        posy = iy
+                        self._size[1] = ibounds[1] - iy
+                        self.pick_on_frame -= 2
+                    else:
+                        self._size[1] = iy - ibounds[1]
+                if self._size[0] < 1:
+                    self._size[0] = 1
+                if self._size[1] < 1:
+                    self._size[1] = 1
+                self._validate_geometry(posx, posy)
+            else:
+                ix -= self.pick_offset[0]
+                iy -= self.pick_offset[1]
+                self._validate_geometry(ix, iy)
+            self._apply_changes(old_size=old_size, old_position=old_position)
+
+
+class DraggableHorizontalLine(DraggablePatchBase):
+
+    def _update_patch_position(self):
+        if self.is_on() and self.patch is not None:
+            self.patch.set_ydata(self.coordinates[0])
             self.draw_patch()
 
     def _set_patch(self):
         ax = self.ax
         self.patch = ax.axhline(
-            self.axes_manager.coordinates[0],
+            self.coordinates[0],
             color=self.color,
             picker=5)
 
     def _onmousemove(self, event):
         'on mouse motion draw the cursor if picked'
         if self.picked is True and event.inaxes:
-            try:
-                self.axes_manager.navigation_axes[0].value = event.ydata
-            except traits.api.TraitError:
-                # Index out of range, we do nothing
-                pass
+            self.position = (self.axes[0].value2index(event.ydata),)
 
 
-class DraggableVerticalLine(DraggablePatch):
-
-    def __init__(self, axes_manager):
-        DraggablePatch.__init__(self, axes_manager)
-
+class DraggableVerticalLine(DraggablePatchBase):
     def _update_patch_position(self):
-        if self.patch is not None:
-            self.patch.set_xdata(self.axes_manager.coordinates[0])
+        if self.is_on() and self.patch is not None:
+            self.patch.set_xdata(self.coordinates[0])
             self.draw_patch()
 
     def _set_patch(self):
         ax = self.ax
-        self.patch = ax.axvline(self.axes_manager.coordinates[0],
+        self.patch = ax.axvline(self.coordinates[0],
                                 color=self.color,
                                 picker=5)
 
     def _onmousemove(self, event):
         'on mouse motion draw the cursor if picked'
         if self.picked is True and event.inaxes:
-            try:
-                self.axes_manager.navigation_axes[0].value = event.xdata
-            except traits.api.TraitError:
-                # Index out of range, we do nothing
-                pass
+            self.position = (self.axes[0].value2index(event.xdata),)
 
 
-class DraggableLabel(DraggablePatch):
+class DraggableLabel(DraggablePatchBase):
 
     def __init__(self, axes_manager):
-        DraggablePatch.__init__(self, axes_manager)
+        super(DraggableLabel, self).__init__(axes_manager)
         self.string = ''
         self.y = 0.9
         self.text_color = 'black'
         self.bbox = None
 
     def _update_patch_position(self):
-        if self.patch is not None:
-            self.patch.set_x(self.axes_manager.coordinates[0])
+        if self.is_on() and self.patch is not None:
+            self.patch.set_x(self.coordinates[0])
             self.draw_patch()
 
     def _set_patch(self):
@@ -306,7 +867,7 @@ class DraggableLabel(DraggablePatch):
         trans = transforms.blended_transform_factory(
             ax.transData, ax.transAxes)
         self.patch = ax.text(
-            self.axes_manager.coordinates[0],
+            self.coordinates[0],
             self.y,  # Y value in axes coordinates
             self.string,
             color=self.text_color,
@@ -315,6 +876,260 @@ class DraggableLabel(DraggablePatch):
             horizontalalignment='right',
             bbox=self.bbox,
             animated=self.blit)
+
+class DraggableResizable2DLine(ResizableDraggablePatchBase):
+    """
+    NOTE: This widget's internal coordinates does not lock to axes points.
+    NOTE: The 'size' property corresponds to line width.
+    """
+    FUNC_NONE = 0
+    FUNC_MOVE = 1
+    FUNC_RESIZE = 2
+    FUNC_ROTATE = 4
+    FUNC_A = 32
+    FUNC_B = 64
+    
+    def __init__(self, axes_manager):
+        super(DraggableResizable2DLine, self).__init__(axes_manager)        
+        self._pos = np.array([[0, 0], [0, 0]])
+        self._size = np.array([1])
+        self.linewidth = 1
+        self.radius_move = self.radius_resize = 5
+        self.radius_rotate = 10
+        self.func = self.FUNC_NONE
+        self._prev_pos = None
+        self._rotate_orig = None
+        self._width_indicators = []
+        
+        # Set default axes
+        if self.axes_manager is not None:
+            if self.axes_manager.navigation_dimension > 1:
+                self.axes = self.axes_manager.navigation_axes[0:2]
+            else:
+                self.axes = self.axes_manager.signal_axes[0:2]
+    
+    def connect_navigate(self):
+        raise NotImplementedError("Lines cannot be used to navigate yet")
+        
+    def _get_position(self):
+        ret = tuple()
+        for i in xrange(np.shape(self._pos)[0]):
+            ret += (tuple(self.axes[i].value2index(self._pos[i,:])), )
+        return ret # Don't pass reference, and make it clear
+        
+    def _set_position(self, value):
+        value = self._validate_pos(np.array(value))
+        if np.any(self._pos != value):
+            c = []
+            for i in xrange(len(self.axes)):
+                c.append(self.axes[i].index2value(value[:,i]))
+            self.coordinates = np.array(c).T
+            
+    def _validate_pos(self, pos):
+        """Make sure all points of 'pos' are within axis bounds.
+        """
+        ndim = np.shape(pos)[1]
+        if ndim != len(self.axes):
+            raise ValueError()
+        for i in xrange(ndim):
+            if not np.all((self.axes[i].low_index <= pos[:,i]) & \
+                          (pos[:,i] <= self.axes[i].high_index)):
+                raise ValueError()
+        return pos
+            
+    def _get_coordinates(self):
+        return self._pos.copy()
+    
+    def _set_coordinates(self, coordinates):
+        coordinates = self._validate_coords(coordinates)
+        if np.any(self._pos != coordinates):
+            self._pos = np.array(coordinates)
+            self._pos_changed()
+    
+    def _validate_coords(self, coords):
+        """Make sure all points of 'pos' are within axis bounds.
+        """
+        ndim = np.shape(coords)[1]
+        if ndim != len(self.axes):
+            raise ValueError()
+        for i in xrange(ndim):
+            ax = self.axes[i]
+            coords[:,i] = np.maximum(coords[:,i], ax.low_value - 0.5*ax.scale)
+            coords[:,i] = np.minimum(coords[:,i], ax.high_value + 0.5*ax.scale)
+        return coords
+
+    def _get_size_in_axes(self):
+        """Returns line length in axes coordinates. Requires units on all axes
+        to be the same to make any physical sense.
+        """
+        return np.linalg.norm(np.diff(self.coordinates, axis=0), axis=1)
+        
+    def get_centre(self):
+        return np.mean(self._pos, axis=0)
+        
+    def _update_patch_position(self):
+        self._update_patch_geometry()
+
+    def _update_patch_size(self):
+        self._update_patch_geometry()
+    
+    def _update_patch_geometry(self):
+        if self.is_on() and self.patch is not None:
+            self.patch.set_data(self.coordinates.T)
+            self.draw_patch()
+            if self.size[0] > 1:
+                pass
+                #TODO: Update width indicators
+
+    def _set_patch(self):
+        xy = self.coordinates
+        max_r = max(self.radius_move, self.radius_resize, 
+                    self.radius_rotate)
+        self.patch, = self.ax.plot(
+            xy[:,0], xy[:,1],
+            linestyle='-',
+            animated=self.blit,
+            lw=self.linewidth,
+            c=self.color,
+            marker='s',
+            markersize = self.radius_resize,
+            mew=0.1,
+            mfc='lime',
+            picker=max_r,)
+        if self.size[0] > 1:
+            #TODO: Draw width indicators
+            pass
+#            trans = self.ax.transData
+#            p = np.array(trans.transform(self.coordinates))
+#            
+#            w1 = self.ax.plot(xy[:,0])
+#            self._width_indicators
+        self.ax.autoscale(tight=True)
+
+            
+    def get_vertex(self, event):
+        if self.func & self.FUNC_A:
+            return 0
+        elif self.func & self.FUNC_B:
+            return 1
+        else:
+            return None
+            
+    def get_func_from_pos(self, cx, cy):
+        """
+        Get interaction function from pixel position (cx,cy)
+        """
+        if self.patch is None:
+            return self.FUNC_NONE
+            
+        trans = self.ax.transData
+        p = np.array(trans.transform(self.coordinates))
+        
+        # Calculate the distances to the vertecies, and find nearest one
+        r2 = np.sum(np.power(p - np.array((cx,cy)), 2), axis=1)
+        mini = np.argmin(r2)
+        minr = r2[mini]
+        del r2
+        # Check for resize: Click within radius_resize from edge points
+        radius = self.radius_resize
+        if minr <= radius ** 2:
+            ret = self.FUNC_RESIZE
+            ret |= self.FUNC_A if mini == 0 else self.FUNC_B
+            return ret
+        
+        # Check for rotate: Click within radius_rotate on outside of edgepts
+        radius = self.radius_rotate
+        A = p[0,:]
+        B = p[1,:]  # Assumes one segment only.
+        c = np.array((cx,cy))
+        t = np.dot(c-A, B-A)    # t[0]: A->click, t[1]: A->B
+        bas = np.linalg.norm(B-A)**2
+        if minr <= radius**2:   # If within rotate radius
+            if t < 0.0 and mini == 0:   # "Before" A on the line
+                return self.FUNC_ROTATE | self.FUNC_A
+            elif t > bas and mini == 1: # "After" B on the line
+                return self.FUNC_ROTATE | self.FUNC_B
+
+        # Check for move: Click within radius_move from any pt on line          
+        radius = self.radius_move
+        if t > 0 and t < bas:
+            # A + (t/bas)*(B-A) is closest point on line
+            if np.linalg.norm(A + (t/bas)*(B-A) - c) < radius:
+                return self.FUNC_MOVE
+        return self.FUNC_NONE
+            
+    def onpick(self, event):
+        super(DraggableResizable2DLine, self).onpick(event)
+        if self.picked:
+            me = event.mouseevent
+            self.func = self.get_func_from_pos(me.x, me.y)
+            self._prev_pos = [me.xdata, me.ydata]
+            if self.func & self.FUNC_ROTATE:
+                self._rotate_orig = self.coordinates
+    
+    def _onmousemove(self, event):
+        if self.picked is True:
+            if self.func & self.FUNC_MOVE and event.inaxes:
+                self.move(event)
+            elif self.func & self.FUNC_RESIZE and event.inaxes:
+                self.resize(event)
+            elif self.func & self.FUNC_ROTATE:
+                self.rotate(event)
+    
+    def get_diff(self, event):
+        if event.xdata is None:
+            dx = 0
+        else:
+            dx = event.xdata - self._prev_pos[0]
+        if event.ydata is None:
+            dy = 0
+        else:
+            dy = event.ydata - self._prev_pos[1]
+        return np.array((dx, dy))
+            
+    def move(self, event):
+        dx = self.get_diff(event)
+        self.coordinates += dx
+        self._prev_pos += dx
+            
+    def resize(self, event):
+        ip = self.get_vertex(event)
+        dx = self.get_diff(event)
+        p = self.coordinates
+        p[ip,0:2] += dx
+        self.coordinates = p
+        self._prev_pos += dx
+        
+    def rotate(self, event):
+        if None in (event.xdata, event.ydata):
+            return
+        # Rotate does not update last pos, to avoid inaccuracies by deltas
+        dx = self.get_diff(event)
+        
+        # Rotation should happen in screen coordinates, as anything else will
+        # mix units
+        trans = self.ax.transData
+        scr_zero = np.array(trans.transform((0,0)))
+        dx = np.array(trans.transform(dx)) - scr_zero
+        
+        # Get center point = center of original line
+        c = trans.transform(np.mean(self._rotate_orig, axis=0))
+        
+        # Figure out theta
+        v1 = (event.x, event.y) - c     # Center to mouse
+        v2 = v1 - dx                    # Center to start pos
+        theta = angle_between(v2, v1)   # Rotation between start and mouse
+
+        if event.key is not None and 'shift' in event.key:
+            base = 30 * np.pi / 180
+            theta = base * round(float(theta)/base)
+        
+        # vector from points to center
+        w1 = c - trans.transform(self._rotate_orig)  
+        # rotate into w2 for next point
+        w2 = np.array((w1[:,0]*np.cos(theta) - w1[:,1]*np.sin(theta),
+                       w1[:,1]*np.cos(theta) + w1[:,0]*np.sin(theta)))
+        self.coordinates = trans.inverted().transform(c + np.rot90(w2))
 
 
 class Scale_Bar():
@@ -420,7 +1235,7 @@ class Scale_Bar():
         self.ax.set_ylim(self.ymin, self.ymax)
         self.ax.figure.canvas.draw()
 
-    def set_position(self, x, y):
+    def _set_position(self, x, y):
         self.position = x, y
         self.calculate_text_position()
         self.plot_scale(line_width=self.line.get_linewidth())
@@ -451,6 +1266,132 @@ def in_interval(number, interval):
         return False
 
 
+class DraggableResizableRange(ResizableDraggablePatchBase):
+    
+    def __init__(self, axes_manager):
+        super(DraggableResizableRange, self).__init__(axes_manager)
+        self.span = None
+
+    def set_on(self, value):
+        if value is not self.is_on() and self.ax is not None:
+            if value is True:
+                self._add_patch_to(self.ax)
+                self.connect(self.ax)
+            elif value is False:
+                self.disconnect(self.ax)
+            try:
+                self.ax.figure.canvas.draw()
+            except:  # figure does not exist
+                pass
+            if value is False:
+                self.ax = None
+        self.__is_on = value
+
+    def _add_patch_to(self, ax):
+        self.span = ModifiableSpanSelector(ax)
+        self.span.set_initial(self._get_range())
+        self.span.can_switch = True
+        self.span.events.changed[1].connect(self._span_changed)
+        self.span.step_ax = self.axes[0]
+        self.span.tolerance = 5
+        self.patch = self.span.rect
+    
+    def _span_changed(self, span):
+        r = self._get_range()
+        pr = span.range
+        if r != pr:
+            dx = (self._get_size_in_axes() / self._size)[0]
+            ix = self._v2i(self.axes[0], pr[0] + 0.5*dx)
+            w = self._v2i(self.axes[0], pr[1] + 0.5*dx) - ix
+            old_position, old_size = self.position, self.size
+            self._pos = np.array([ix])
+            self._size = np.array([w])
+            self._apply_changes(old_size=old_size, old_position=old_position)
+            
+                                        
+    def _get_range(self):
+        c = self.coordinates[0]
+        w = self._get_size_in_axes()[0]
+        c -= w / (2.0 * self._size[0])
+        return (c, c + w)
+        
+    def _parse_bounds_args(self, args, kwargs):
+        if len(args) == 1:
+            return args[0]
+        elif len(args) == 4:
+           return args
+        elif len(kwargs) == 1 and kwargs.has_key('bounds'):
+            return kwargs.values()[0]
+        else:
+            x = kwargs.pop('x', kwargs.pop('left', self._pos[0]))
+            if kwargs.has_key('right'):
+                w = kwargs.pop('right') - x
+            else:
+                w = kwargs.pop('w', kwargs.pop('width', self._size[0]))
+            return x, w
+            
+    def set_ibounds(self, *args, **kwargs):
+        """
+        Set bounds by indices. Bounds can either be specified in order left,
+        bottom, width, height; or by keywords:
+         * 'bounds': tuple (left, width)
+         OR
+         * 'x'/'left'
+         * 'w'/'width', alternatively 'right'
+        If specifying with keywords, any unspecified dimensions will be kept
+        constant (note: width will be kept, not right).
+        """
+
+        x, w = self._parse_bounds_args(args, kwargs)
+            
+        if not (self.axes[0].low_index <= x <= self.axes[0].high_index):
+            raise ValueError()
+        if not (self.axes[0].low_index <= x+w <= self.axes[0].high_index):
+            raise ValueError()
+            
+        old_position, old_size = self.position, self.size
+        self._pos = np.array([x])
+        self._size = np.array([w])
+        self._apply_changes(old_size=old_size, old_position=old_position)
+        
+    def set_bounds(self, *args, **kwargs):
+        """
+        Set bounds by values. Bounds can either be specified in order left,
+        bottom, width, height; or by keywords:
+         * 'bounds': tuple (left, width)
+         OR
+         * 'x'/'left'
+         * 'w'/'width', alternatively 'right' (x+w)
+        If specifying with keywords, any unspecified dimensions will be kept
+        constant (note: width will be kept, not right).
+        """
+
+        x, w = self._parse_bounds_args(args, kwargs)
+        ix = self.axes[0].value2index(x)
+        w = self._v2i(self.axes[0], x+w) - ix
+            
+        old_position, old_size = self.position, self.size
+        self._pos = np.array([ix])
+        self._size = np.array([w])
+        self._apply_changes(old_size=old_size, old_position=old_position)
+
+    def _update_patch_position(self):
+        self._update_patch_geometry()
+
+    def _update_patch_size(self):
+        self._update_patch_geometry()
+
+    def _update_patch_geometry(self):
+        if self.is_on() and self.span is not None:
+            self.span.range = self._get_range()
+
+    def disconnect(self, ax):
+        super(DraggableResizableRange, self).disconnect(ax)
+        if self.span and self.ax == ax:
+            self.span.turn_off()
+            self.span = None
+    
+
 class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
 
     def __init__(self, ax, **kwargs):
@@ -460,10 +1401,72 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         # The tolerance in points to pick the rectangle sizes
         self.tolerance = 1
         self.on_move_cid = None
-        self.range = None
+        self._range = None
+        self.step_ax = None
+        self.events = Events()
+        self.events.changed = Event()
+        self.events.moved = Event()
+        self.events.resized = Event()
+        self.can_switch = False
         
     def dummy(self, *args, **kwargs):
         pass
+    
+    def _get_range(self):
+        self.update_range()
+        return self._range
+        
+    def _set_range(self, value):
+        self.update_range()
+        if self._range != value:
+            resized = (self._range[1] - self._range[0]) != (value[1] - value[0])
+            moved = self._range[0] != value[0]
+            self._range = value
+            if moved:
+                self.rect.set_x(value[0])
+                self.events.moved.trigger(self)
+            if resized:
+                self.rect.set_width(value[1] - value[0])
+                self.events.resized.trigger(self)
+            if moved or resized:
+                self.update()
+                self.events.changed.trigger(self)
+                
+    range = property(_get_range, _set_range)
+    
+    def set_initial(self, initial_range=None):
+        """
+        Remove selection events, set the spanner, and go to modify mode.
+        """
+        if initial_range is not None:
+            self.range = initial_range
+            
+        for cid in self.cids:
+            self.canvas.mpl_disconnect(cid)
+        # And connect to the new ones
+        self.cids.append(
+            self.canvas.mpl_connect('button_press_event', self.mm_on_press))
+        self.cids.append(
+            self.canvas.mpl_connect('button_release_event', self.mm_on_release))
+        self.cids.append(
+            self.canvas.mpl_connect('draw_event', self.update_background))
+        self.rect.set_visible(True)
+        self.rect.contains = self.contains
+        self.update()
+
+    def contains(self, mouseevent):
+        # Assert y is correct first
+        x,y = self.rect.get_transform().inverted().transform_point(
+            (mouseevent.x, mouseevent.y))
+        if not (0.0 <= y <= 1.0):
+            return False, {}
+        invtrans = self.ax.transData.inverted()
+        x_pt = self.tolerance * abs((invtrans.transform((1, 0)) -
+                    invtrans.transform((0, 0)))[0])
+        hit = self._range[0] - x_pt, self._range[1] + x_pt
+        if hit[0] < mouseevent.xdata < hit[1]:
+            return True, {}
+        return False, {}
 
     def release(self, event):
         """When the button is realeased, the span stays in the screen and the
@@ -473,17 +1476,7 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         self.buttonDown = False
         self.update_range()
         self.onselect()
-        # We first disconnect the previous signals
-        for cid in self.cids:
-            self.canvas.mpl_disconnect(cid)
-
-        # And connect to the new ones
-        self.cids.append(
-            self.canvas.mpl_connect('button_press_event', self.mm_on_press))
-        self.cids.append(
-            self.canvas.mpl_connect('button_release_event', self.mm_on_release))
-        self.cids.append(
-            self.canvas.mpl_connect('draw_event', self.update_background))
+        self.set_initial()
 
     def mm_on_press(self, event):
         if (self.ignore(event) and not self.buttonDown):
@@ -492,15 +1485,14 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
 
         # Calculate the point size in data units
         invtrans = self.ax.transData.inverted()
-        x_pt = abs((invtrans.transform((1, 0)) -
+        x_pt = self.tolerance * abs((invtrans.transform((1, 0)) -
                     invtrans.transform((0, 0)))[0])
 
         # Determine the size of the regions for moving and stretching
-        rect = self.rect
-        self.range = rect.get_x(), rect.get_x() + rect.get_width()
-        left_region = self.range[0] - x_pt, self.range[0] + x_pt
-        right_region = self.range[1] - x_pt, self.range[1] + x_pt
-        middle_region = self.range[0] + x_pt, self.range[1] - x_pt
+        self.update_range()
+        left_region = self._range[0] - x_pt, self._range[0] + x_pt
+        right_region = self._range[1] - x_pt, self._range[1] + x_pt
+        middle_region = self._range[0] + x_pt, self._range[1] - x_pt
 
         if in_interval(event.xdata, left_region) is True:
             self.on_move_cid = \
@@ -519,46 +1511,117 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
             return
 
     def update_range(self):
-        self.range = (self.rect.get_x(),
+        self._range = (self.rect.get_x(),
                       self.rect.get_x() + self.rect.get_width())
+
+    def switch_left_right(self, x, left_to_right):
+        if left_to_right:
+            if self.step_ax is not None:
+                if x > self.step_ax.high_value + self.step_ax.scale:
+                    return
+            w = self._range[1] - self._range[0]
+            r0 = self._range[1]
+            self.rect.set_x(r0)
+            r1 = r0 + w
+            self.canvas.mpl_disconnect(self.on_move_cid)
+            self.on_move_cid = \
+                self.canvas.mpl_connect('motion_notify_event',
+                                        self.move_right)
+        else:
+            if self.step_ax is not None:
+                if x < self.step_ax.low_value - self.step_ax.scale:
+                    return
+            w = self._range[1] - self._range[0]
+            r1 = self._range[0]
+            r0 = r1 - w
+            self.canvas.mpl_disconnect(self.on_move_cid)
+            self.on_move_cid = \
+                self.canvas.mpl_connect('motion_notify_event',
+                                        self.move_left)
+        self._range = (r0, r1)
 
     def move_left(self, event):
         if self.buttonDown is False or self.ignore(event):
             return
+        x = event.xdata
+        if self.step_ax is not None:
+            if x < self.step_ax.low_value - self.step_ax.scale:
+                return
+            rem = (x - self.step_ax.offset - 0.5*self.step_ax.scale) \
+                    % self.step_ax.scale
+            if rem/self.step_ax.scale < 0.5:
+                rem = -rem
+            else:
+                rem = self.step_ax.scale-rem
+            x += rem
         # Do not move the left edge beyond the right one.
-        if event.xdata >= self.range[1]:
+        if x >= self._range[1]:
+            if self.can_switch and x > self._range[1]:
+                self.switch_left_right(x, True)
+                self.move_right(event)
             return
-        width_increment = self.range[0] - event.xdata
-        self.rect.set_x(event.xdata)
+        width_increment = self._range[0] - x
+        if self.rect.get_width() + width_increment <= 0:
+            return
+        self.rect.set_x(x)
         self.rect.set_width(self.rect.get_width() + width_increment)
         self.update_range()
+        self.events.moved.trigger(self)
+        self.events.resized.trigger(self)
+        self.events.changed.trigger(self)
         if self.onmove_callback is not None:
-            self.onmove_callback(*self.range)
+            self.onmove_callback(*self._range)
         self.update()
 
     def move_right(self, event):
         if self.buttonDown is False or self.ignore(event):
             return
+        x = event.xdata
+        if self.step_ax is not None:
+            if x > self.step_ax.high_value + self.step_ax.scale:
+                return
+            rem = (x - self.step_ax.offset + 0.5*self.step_ax.scale) \
+                    % self.step_ax.scale
+            if rem/self.step_ax.scale < 0.5:
+                rem = -rem
+            else:
+                rem = self.step_ax.scale-rem
+            x += rem
         # Do not move the right edge beyond the left one.
-        if event.xdata <= self.range[0]:
+        if x <= self._range[0]:
+            if self.can_switch and x < self._range[0]:
+                self.switch_left_right(x, False)
+                self.move_left(event)
             return
-        width_increment = \
-            event.xdata - self.range[1]
+        width_increment = x - self._range[1]
+        if self.rect.get_width() + width_increment <= 0:
+            return
         self.rect.set_width(self.rect.get_width() + width_increment)
         self.update_range()
+        self.events.resized.trigger(self)
+        self.events.changed.trigger(self)
         if self.onmove_callback is not None:
-            self.onmove_callback(*self.range)
+            self.onmove_callback(*self._range)
         self.update()
 
     def move_rect(self, event):
         if self.buttonDown is False or self.ignore(event):
             return
         x_increment = event.xdata - self.pressv
+        if self.step_ax is not None:
+            rem = x_increment % self.step_ax.scale
+            if rem/self.step_ax.scale < 0.5:
+                rem = -rem
+            else:
+                rem = self.step_ax.scale-rem
+            x_increment += rem
         self.rect.set_x(self.rect.get_x() + x_increment)
         self.update_range()
-        self.pressv = event.xdata
+        self.pressv += x_increment
+        self.events.moved.trigger(self)
+        self.events.changed.trigger(self)
         if self.onmove_callback is not None:
-            self.onmove_callback(*self.range)
+            self.onmove_callback(*self._range)
         self.update()
 
     def mm_on_release(self, event):
