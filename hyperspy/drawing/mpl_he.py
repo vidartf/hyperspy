@@ -123,7 +123,6 @@ class MPL_HyperExplorer(object):
             if pointer is not None:
                 self.pointer = pointer(self.axes_manager)
                 self.pointer.color = 'red'
-                self.pointer.connect_navigate()
             self.plot_navigator()
         self.plot_signal()
 
