@@ -31,6 +31,7 @@ from hyperspy.decorators import interactive_range_selector
 from hyperspy.axes import (AxesManager, DataAxis)
 from hyperspy.drawing.widgets import (DraggableHorizontalLine,
                                       DraggableLabel)
+from hyperspy.decorators import inherit_docstring_from
 
 
 sqrt2pi = math.sqrt(2 * math.pi)
@@ -57,6 +58,7 @@ class GaussianModel(Model):
 
     def coarse_fit(self, n_gauss):
         f = self.spectrum.data[self.channel_switches]
+        f_shift = np.argmax(self.channel_switches)
 
         # Use a small gaussian kernel to do take the derivatives
         df = ndimage.gaussian_filter1d(f, sigma=1, order=1, mode='wrap')
@@ -64,13 +66,16 @@ class GaussianModel(Model):
     
         # Find peak positions
         signs = np.sign(df)
-        imax = np.where((np.diff(signs) != 0) & (signs[:-1] > 0))[0] + 1
+        imax = np.where((np.diff(signs) != 0) & (signs[:-1] > 0))[0] + 1 + f_shift
         self.centres = self.spectrum.axes_manager[0].index2value(imax)
 
         if n_gauss is not None and n_gauss < imax.size:
             # Select strongest n_gauss
             (sigmas, amps) = self._calc_sigma_amp()
-            imax.sort(key=lambda im: amps[im] * sigmas[im]) # Maybe use negative df2?
+            def sorter(im):
+                idx = imax.index(im)
+                return amps[idx] * sigmas[idx] # Maybe use negative df2 instead?
+            imax.sort(key=sorter)
             imax = imax[:n_gauss]
             self.centres = self.spectrum.axes_manager[0].index2value(imax)
 
@@ -159,6 +164,7 @@ class GaussianModel(Model):
         #self.fit() 
         pass
 
+    @inherit_docstring_from(Model)
     def fit(self, *args, **kwargs):
         self._update_gaussians()
         self.locked_fit(*args, **kwargs)  # Fit once with locked centres to refine first
@@ -279,7 +285,7 @@ class GaussianModel(Model):
         self._update_gaussians()
 
     def _remove_gaussian(self, idx, *args, **kwargs):
-        np.delete(self.centres, idx)
+        self.centres = np.delete(self.centres, idx)
         g = self.gaussians[idx]
         self.gaussians.remove(g)
         super(GaussianModel, self).remove(g, *args, **kwargs)
