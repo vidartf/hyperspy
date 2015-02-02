@@ -3,7 +3,6 @@ class Interactive:
                  recompute_out_event=None,
                  *args, **kwargs):
         self.f = f
-        self.source = obj
         self.args = args
         self.kwargs = kwargs
         if kwargs.has_key('out'):
@@ -11,8 +10,8 @@ class Interactive:
             self.out = kwargs.pop('out')
         else:
             self.out = self.f(*args, **kwargs)
-            if recompute_out_event:
-                recompute_out_event.connect(self._recompute_out)
+        if recompute_out_event:
+            recompute_out_event.connect(self._recompute_out)
         event.connect(self.update)
         self.out.events.data_changed.connect(self.out.update_plot)
         self.out.events.axes_changed.connect(self.out._replot)
