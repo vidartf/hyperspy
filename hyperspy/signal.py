@@ -2617,7 +2617,7 @@ class Signal(MVA,
             _signal = self._deepcopy_with_new_data(self.data)
         else:
             out.data = self.data
-            out._update_calibration_from(self.axes_manager,
+            out.axes_manager.update_from(self.axes_manager,
                                          fields=('offset', 'scale', 'size'))
             _signal = out
 
