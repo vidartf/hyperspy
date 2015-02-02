@@ -1,9 +1,6 @@
 import traits.api as t
 from hyperspy.events import Events, Event
-import hyperspy.interactive
 from hyperspy.axes import DataAxis
-from hyperspy.drawing.widgets import ResizableDraggableRectangle, \
-                                     DraggableResizableRange
 
 
 class BaseROI(t.HasTraits):
@@ -11,7 +8,6 @@ class BaseROI(t.HasTraits):
         super(BaseROI, self).__init__()
         self.events = Events()
         self.events.roi_changed = Event()
-        self.widgets = set()
         self.signal_map = dict()
        
     def _get_coords(self):
@@ -24,33 +20,7 @@ class BaseROI(t.HasTraits):
 
     def update(self):
         if t.Undefined not in self.coords:
-            if not self.events.roi_changed.suppress:
-                self._update_widgets()
             self.events.roi_changed.trigger(self)
-
-    def _update_widgets(self, exclude=set()):
-        if not isinstance(exclude, set):
-            exclude = set(exclude)
-        for w in self.widgets - exclude:
-            with w.events.suppress:
-                self._apply_roi2widget(w)
-            
-    def _apply_roi2widget(self, widget):
-        raise NotImplementedError()
-
-    def interactive(self, signal, navigation_signal="same", out=None):
-        if navigation_signal == "same":
-            navigation_signal = signal
-        if navigation_signal is not None:
-            self.add_widget(navigation_signal)
-        if out is None:
-            return hyperspy.interactive.interactive(self.__call__, 
-                                         event=self.events.roi_changed,
-                                         signal=signal)
-        else:
-            return hyperspy.interactive.interactive(self.__call__, 
-                                         event=self.events.roi_changed,
-                                         signal=signal, out=out)
 
     def _make_slices(self, axes_collecion, axes, ranges=None):
         """
@@ -88,62 +58,6 @@ class BaseROI(t.HasTraits):
         else:
             signal.__getitem__(slices, out=out)
 
-    def _on_widget_change(self, widget):
-        with self.events.suppress:
-            self._bounds_check = False
-            try:
-                c = widget.get_coordinates()
-                s = widget._get_size_in_axes() + c   # np addition
-                self.coords = tuple(c) + tuple(s) # Tuple concatination
-            finally:
-                self._bounds_check = True
-        self._update_widgets(exclude=(widget,))
-        self.events.roi_changed.trigger(self)
-        
-    def _get_widget_type(self):
-        raise NotImplementedError()
-
-    def add_widget(self, signal, axes=None, widget=None, color='green'):
-        if widget is None:
-            widget = self._get_widget_type()(signal.axes_manager)
-            widget.color = color
-        axes, ax = self._parse_axes(axes, widget.axes_manager, signal._plot)
-        
-        # Remove existing ROI, if it exsists and axes match
-        if self.signal_map.has_key(signal) and \
-                self.signal_map[signal][1] == axes:
-            self.remove_widget(signal)
-        
-        if axes is not None:
-            # Set DataAxes
-            widget.axes = axes
-        with widget.events.suppress:
-            self._apply_roi2widget(widget)
-        if widget.ax is None:
-            widget.set_mpl_ax(ax)
-            
-        # Connect widget changes to on_widget_change
-        widget.events.changed[1].connect(self._on_widget_change)
-        # When widget closes, remove from internal list
-        widget.events.closed[1].connect(self._remove_widget)
-        self.widgets.add(widget)
-        self.signal_map[signal] = (widget, axes)
-        return widget
-        
-    def _remove_widget(self, widget):
-        widget.events.closed.disconnect(self._remove_widget)
-        widget.events.changed.disconnect(self._on_widget_change)
-        widget.close()
-        for signal, w in self.signal_map.iteritems():
-            if w == widget:
-                self.signal_map.pop(signal)
-                break
-        
-    def remove_widget(self, signal):
-        if self.signal_map.has_key(signal):
-            w = self.signal_map.pop(signal)[0]
-            self._remove_widget(w)
-
 class SpanROI(BaseROI):
     left, right = (t.CFloat(t.Undefined),) * 2
     
@@ -172,12 +86,6 @@ class SpanROI(BaseROI):
             self.left = old
         else:
             self.update()
-
-    def _apply_roi2widget(self, widget):
-        widget.set_bounds(left=self.left, right=self.right)
-        
-    def _get_widget_type(self):
-        return DraggableResizableRange
 
     def _parse_axes(self, axes, axes_manager, plot):
         if isinstance(axes, basestring):
@@ -257,13 +165,6 @@ class RectangularROI(BaseROI):
             self.left = old
         else:
             self.update()
-
-    def _apply_roi2widget(self, widget):
-        widget.set_bounds(left=self.left, bottom=self.bottom, 
-                          right=self.right, top=self.top)
-        
-    def _get_widget_type(self):
-        return ResizableDraggableRectangle
 
     def _parse_axes(self, axes, axes_manager, plot):
         if isinstance(axes, basestring):
