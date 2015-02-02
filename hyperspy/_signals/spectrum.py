@@ -19,6 +19,7 @@
 import warnings
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from hyperspy.exceptions import DataDimensionError
 from hyperspy.signal import Signal
@@ -172,5 +173,5 @@ class Spectrum(Signal):
         sr = SpikesRemoval(self,
                            navigation_mask=navigation_mask,
                            signal_mask=signal_mask)
-        sr.edit_traits()
+        sr.configure_traits()
         return sr
