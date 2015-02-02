@@ -285,8 +285,10 @@ class Model(list):
         list.append(self, object)
         object.model = self
         self._touch()
+        # If plotting components, add object to plot as well
         if self._plot_components:
             self._plot_component(object)
+        # If adjusting positions of all components, add object postion adjuster
         if self._adjust_position_all is not None:
             self._make_position_adjuster(object, self._adjust_position_all[0],
                self._adjust_position_all[1])
@@ -1606,7 +1608,7 @@ class Model(list):
         enable_adjust_position
 
         """
-        self._adjust_position_all = False
+        self._adjust_position_all = None
         while self._position_widgets:
             pw = self._position_widgets.pop()
             if hasattr(pw, 'component'):
