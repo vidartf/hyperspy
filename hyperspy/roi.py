@@ -81,11 +81,11 @@ class BaseROI(t.HasTraits):
         if navigation_signal is not None:
             self.add_widget(navigation_signal)
         if out is None:
-            return hyperspy.interactive.interactive(self.__call__, 
+            return hyperspy.interactive.interactive(signal, self.__call__, 
                                          event=self.events.roi_changed,
                                          signal=signal)
         else:
-            return hyperspy.interactive.interactive(self.__call__, 
+            return hyperspy.interactive.interactive(signal, self.__call__, 
                                          event=self.events.roi_changed,
                                          signal=signal, out=out)
 
