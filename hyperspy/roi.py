@@ -38,7 +38,7 @@ class BaseROI(t.HasTraits):
             for i in xrange(ndim):
                 c = self.coords[i]
                 if len(c) == 1:
-                    ranges.append((c[0], None))
+                    ranges.append((c[0],))
                 elif len(c) == 2:
                     ranges.append((c[0], c[1]))
         slices = []
@@ -46,7 +46,7 @@ class BaseROI(t.HasTraits):
             if ax in axes:
                 i = axes.index(ax)
                 ilow = ax.value2index(ranges[i][0])
-                if ranges[i][1] is None:
+                if len(ranges[i]) == 1:
                     ihigh = 1 + ilow
                 else:
                     ihigh = 1 + ax.value2index(ranges[i][1], 
@@ -72,7 +72,8 @@ class BaseROI(t.HasTraits):
     
     def _parse_axes(self, axes, axes_manager, plot):
         nd = len(axes)
-        if isinstance(axes, basestring):
+        if isinstance(axes, basestring) and (axes.startswith("nav") or \
+                                             axes.startswith("sig")):
             # Specifies space
             if axes.startswith("nav"):
                 x = axes_manager.navigation_axes[0]
