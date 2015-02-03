@@ -9,7 +9,6 @@ class BaseROI(t.HasTraits):
         super(BaseROI, self).__init__()
         self.events = Events()
         self.events.roi_changed = Event()
-        self.signal_map = dict()
        
     def _get_coords(self):
         raise NotImplementedError()
@@ -54,10 +53,7 @@ class BaseROI(t.HasTraits):
         return tuple(slices)
 
     def __call__(self, signal, out=None, axes=None):
-        if axes is None and self.signal_map.has_key(signal):
-            axes = self.signal_map[signal][1]
-        else:
-            axes = self._parse_axes(axes, signal.axes_manager, signal._plot)
+        axes = self._parse_axes(axes, signal.axes_manager, signal._plot)
         
         natax = signal.axes_manager._get_axes_in_natural_order()
         slices = self._make_slices(natax, axes)
