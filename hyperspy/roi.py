@@ -195,27 +195,90 @@ class BaseROI(t.HasTraits):
 
 
 class BaseInteractiveROI(BaseROI):
+    """Base class for interactive ROIs, i.e. ROIs with widget interaction.
+    The base class defines a lot of the common code for interacting with 
+    widgets, but inhertors need to implement the following functions:
+    
+    _get_widget_type()
+    _apply_roi2widget(widget)
+    
+    If the widgets are of the common interface used in drawing.widgets, the 
+    other functions do not need to be overridden. However, if it deviates from
+    this interface, the following function would most likely need to be 
+    overridden:
+    
+    _set_coords_from_widget(widget)
+    
+    The reason for _set_coords_from_widget having a default implementation 
+    while _apply_roi2widget does not, is because the application of the 
+    geometry to the widget should happen in an optimized manner that prevents
+    flickering of the widget during the update.
+    """
+    
     def __init__(self):
         super(BaseInteractiveROI, self).__init__()
         self.widgets = set()
     
     def update(self):
+        """Function responsible for updating anything that depends on the ROI.
+        It should be called by implementors whenever the ROI changes.
+        This implementation triggers the roi_changed event, and updates the
+        widgets associated with it.
+        """
         if t.Undefined not in np.ravel(self.coords):
             if not self.events.roi_changed.suppress:
                 self._update_widgets()
             self.events.roi_changed.trigger(self)
+        
+    def _get_widget_type(self, axes, signal):
+        """Get the type of a widget that can represent the ROI on the given 
+        axes and signal.
+        """
+        raise NotImplementedError()
+            
+    def _apply_roi2widget(self, widget):
+        """This function is responsible for applying the ROI geometry to the 
+        widget. When this function is called, the widget's events are already
+        suppressed, so this should not be necessary _apply_roi2widget to 
+        handle.
+        """
+        raise NotImplementedError()
 
     def _update_widgets(self, exclude=set()):
+        """Internal function for updating the associated widgets to the 
+        geometry contained in the ROI.
+        
+        Arguments
+        ---------
+        exclude : set()
+            A set of widgets to exclude from the update. Useful e.g. if a 
+            widget has triggered a change in the ROI: Then all widgets, 
+            excluding the one that was the source for the change, should be 
+            updated.
+        """
         if not isinstance(exclude, set):
             exclude = set(exclude)
         for w in self.widgets - exclude:
             with w.events.changed.suppress_single(self._on_widget_change):
                 self._apply_roi2widget(w)
-            
-    def _apply_roi2widget(self, widget):
-        raise NotImplementedError()
 
     def interactive(self, signal, navigation_signal="same", out=None):
+        """Creates an interactivley sliced Signal (sliced by this ROI) via 
+        hyperspy.interactive.
+        
+        Arguments:
+        ----------
+        signal : Signal
+            The source signal to slice
+        navigation_signal : Signal, None or "same" (default)
+            If not None, it will automatically create a widget on 
+            navigation_signal. Passing "same" is identical to pasing the same
+            signal to 'signal' and 'navigation_signal', but is less ambigous,
+            and allows "same" to be the default value.
+        out : Signal
+            If not None, it will use 'out' as the output instead of returning
+            a new Signal.
+        """
         if navigation_signal == "same":
             navigation_signal = signal
         if navigation_signal is not None:
@@ -231,11 +294,18 @@ class BaseInteractiveROI(BaseROI):
                                          signal=signal, out=out)
             
     def _set_coords_from_widget(self, widget):
+        """Sets the internal representation of the ROI from the passed widget,
+        without doing anything to events.
+        """
         c = widget.coordinates
         s = widget._get_size_in_axes()
         self.coords = zip(c, c+s)
 
     def _on_widget_change(self, widget):
+        """Callback for widgets' 'changed' event. Updates the internal state
+        from the widget, and triggers events (excluding connections to the 
+        source widget).
+        """
         with self.events.suppress:
             self._bounds_check = False
             try:
@@ -244,11 +314,38 @@ class BaseInteractiveROI(BaseROI):
                 self._bounds_check = True
         self._update_widgets(exclude=(widget,))
         self.events.roi_changed.trigger(self)
-        
-    def _get_widget_type(self, axes, signal):
-        raise NotImplementedError()
 
     def add_widget(self, signal, axes=None, widget=None, color='green'):
+        """Add a widget to visually represent the ROI, and connect it so any
+        changes in either are reflected in the other. Note that only one
+        widget can be added per signal/axes pair.
+        
+        Arguments:
+        ----------
+        signal : Signal
+            The signal to witch the widget is added. This is used to determine
+            with plot to add the widget to, and it supplies the axes_manager
+            for the widget.
+        axes : specification of axes to use, default = None
+            The axes argument specifies which axes the ROI will be applied on.
+            The DataAxis in the collection can be either of the following:
+                * "navigation" or "signal", in which the first axes of that
+                  space's axes will be used.
+                * a tuple of:
+                    - DataAxis. These will not be checked with 
+                      signal.axes_manager.
+                    - anything that will index signal.axes_manager
+                * For any other value, it will check whether the navigation
+                  space can fit the right number of axis, and use that if it
+                  fits. If not, it will try the signal space.
+        widget : Widget or None (default)
+            If specified, this is the widget that will be added. If None, the
+            default widget will be used, as given by _get_widget_type().
+        color : Matplotlib color specifier (default: 'green')
+            The color for the widget. Any format that matplotlib uses should be
+            ok. This will not change the color fo any widget passed with the
+            'widget' argument.
+        """
         axes, ax = self._parse_axes(axes, signal.axes_manager, signal._plot)
         if widget is None:
             widget = self._get_widget_type(axes, signal)(signal.axes_manager)
@@ -323,6 +420,7 @@ class Point1DROI(BasePointROI):
         widget.coordinates = self.value
         
     def _get_widget_type(self, axes, signal):
+        # Figure out whether to use horizontal or veritcal line:
         if axes[0].navigate:
             plotdim = len(signal._plot.navigator_data_function().shape)
             axdim = signal.axes_manager.navigation_dimension
