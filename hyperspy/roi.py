@@ -8,29 +8,54 @@ from hyperspy.drawing import widgets
 
 
 class BaseROI(t.HasTraits):
+    """Base class for all ROIs.
+    
+    Provides some basic functionality that is likely to be shared between all
+    ROIs, and serve as a common type that can be checked for.
+    """
     def __init__(self):
+        """Sets up events.roi_changed event, and inits HasTraits.
+        """
         super(BaseROI, self).__init__()
         self.events = Events()
         self.events.roi_changed = Event()
         self.signal_map = dict()
        
     def _get_coords(self):
+        """_get_coords() is the getter for the coords property, and should be 
+        implemented by inheritors to return a 2D tuple containing all the 
+        coordinates that are needed to define the ROI. The tuple should be of 
+        the structure:
+        tuple([tuple( <all 1st axis coordinates> ), \
+               tuple( <all 2nd axis coordinates> ), ... ])
+        """
         raise NotImplementedError()
     
     def _set_coords(self, value):
+        """_set_coords is the setter for the coords property, and should be 
+        implemented by inheritors to set its internal represenation of the ROI
+        from a tuple of the following structure:
+        tuple([tuple( <all 1st axis coordinates> ), \
+               tuple( <all 2nd axis coordinates> ), ... ])
+        """
         raise NotImplementedError()
     
     coords = property(lambda s: s._get_coords(), lambda s,v: s._set_coords(v))
 
     def update(self):
+        """Function responsible for updating anything that depends on the ROI.
+        It should be called by implementors whenever the ROI changes.
+        The base implementation simply triggers the roi_changed event.
+        """
         if t.Undefined not in np.ravel(self.coords):
             self.events.roi_changed.trigger(self)
 
     def _make_slices(self, axes_collecion, axes, ranges=None):
         """
-        Utility function to make a slice container that will slice the axes
-        in axes_manager. The axis in 'axes[i]' argument will be sliced with 
-        'ranges[i]', all other axes with 'slice(None)'.
+        Utility function to make a slice structure that will slice all the axes
+        in 'axes_manager'. The axes defined in 'axes[i]' argument will be 
+        sliced with 'ranges[i]', all other axes with 'slice(None)'. If 'ranges'
+        is None, the ranges defined by the ROI will be used.
         """
         if ranges is None:
             ranges= []
@@ -57,6 +82,29 @@ class BaseROI(t.HasTraits):
         return tuple(slices)
 
     def __call__(self, signal, out=None, axes=None):
+        """Slice the signal according to the ROI, and return it.
+
+        Arguments
+        ---------
+        signal : Signal
+            The signal to slice with the ROI.
+        out : Signal, default = None        
+            If the 'out' argument is supplied, the sliced output will be put 
+            into this instead of returning a Signal. See Signal.__getitem__() 
+            for more details on 'out'.
+        axes : specification of axes to use, default = None
+            The axes argument specifies which axes the ROI will be applied on.
+            The DataAxis in the collection can be either of the following:
+                * "navigation" or "signal", in which the first axes of that
+                  space's axes will be used.
+                * a tuple of:
+                    - DataAxis. These will not be checked with 
+                      signal.axes_manager.
+                    - anything that will index signal.axes_manager
+                * For any other value, it will check whether the navigation
+                  space can fit the right number of axis, and use that if it
+                  fits. If not, it will try the signal space.
+        """
         if axes is None and self.signal_map.has_key(signal):
             axes = self.signal_map[signal][1]
         else:
@@ -71,6 +119,34 @@ class BaseROI(t.HasTraits):
             signal.__getitem__(slices, out=out)
     
     def _parse_axes(self, axes, axes_manager, plot):
+        """Utility function to parse the 'axes' argument to a tuple of 
+        DataAxis, and find the matplotlib Axes that contains it.
+        
+        Arguments
+        ---------
+        axes : specification of axes to use, default = None
+            The axes argument specifies which axes the ROI will be applied on.
+            The DataAxis in the collection can be either of the following:
+                * "navigation" or "signal", in which the first axes of that
+                  space's axes will be used.
+                * a tuple of:
+                    - DataAxis. These will not be checked with 
+                      signal.axes_manager.
+                    - anything that will index signal.axes_manager
+                * For any other value, it will check whether the navigation
+                  space can fit the right number of axis, and use that if it
+                  fits. If not, it will try the signal space.
+        axes_manager : AxesManager
+            The AxesManager to use for parsing axes, if axes is not already a
+            tuple of DataAxis.
+        plot : MPL_HyperExplorer
+            The space of the first DataAxis in axes will be used to extract the
+            matplotlib Axes.
+        
+        Returns
+        -------
+        (tuple(<DataAxis>), matplotlib Axes)
+        """
         nd = len(axes)
         if isinstance(axes, basestring) and (axes.startswith("nav") or \
                                              axes.startswith("sig")):
@@ -214,12 +290,18 @@ class BaseInteractiveROI(BaseROI):
 
 
 class BasePointROI(BaseInteractiveROI):
+    """Base ROI class for point ROIs, i.e. ROIs with a unit size in each of its
+    dimensions.
+    """
     def _set_coords_from_widget(self, widget):
         c = widget.coordinates
         self.coords = zip(c)
 
 
 class Point1DROI(BasePointROI):
+    """Selects a single point in a 1D space. The coordinate of the point in the
+    1D space is stored in the 'value' trait.
+    """
     value = t.CFloat(t.Undefined)
     
     def __init__(self, value):
@@ -266,7 +348,11 @@ class Point1DROI(BasePointROI):
             self.value)
 
 
+
 class Point2DROI(BaseInteractiveROI):
+    """Selects a single point in a 2D space. The coordinates of the point in 
+    the 2D space are stored in the traits 'x' and 'y'.
+    """
     x, y = (t.CFloat(t.Undefined),) * 2
     
     def __init__(self, x, y):
@@ -298,6 +384,9 @@ class Point2DROI(BaseInteractiveROI):
         
 
 class SpanROI(BaseInteractiveROI):
+    """Selects a range in a 1D space. The coordinates of the range in 
+    the 1D space are stored in the traits 'left' and 'right'.
+    """
     left, right = (t.CFloat(t.Undefined),) * 2
     
     def __init__(self, left, right):
@@ -340,6 +429,9 @@ class SpanROI(BaseInteractiveROI):
 
 
 class RectangularROI(BaseInteractiveROI):
+    """Selects a range in a 2D space. The coordinates of the range in 
+    the 2D space are stored in the traits 'left', 'right', 'top' and 'bottom'.
+    """
     top, bottom, left, right = (t.CFloat(t.Undefined),) * 4
 
     def __init__(self, left, top, right, bottom):
