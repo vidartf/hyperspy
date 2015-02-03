@@ -1291,7 +1291,7 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
         self.span = ModifiableSpanSelector(ax)
         self.span.set_initial(self._get_range())
         self.span.can_switch = True
-        self.span.events.changed[1].connect(self._span_changed)
+        self.span.events.changed.connect(self._span_changed, 1)
         self.span.step_ax = self.axes[0]
         self.span.tolerance = 5
         self.patch = self.span.rect
