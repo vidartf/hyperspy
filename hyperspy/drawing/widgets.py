@@ -836,7 +836,7 @@ class ResizableDraggableRectangle(Patch2DBase):
             self._resizer_handles.append(r)
         
     def _set_resizers(self, value, ax):
-        """Turns the reiszers on/off, in much the same way that _set_patch 
+        """Turns the resizers on/off, in much the same way that _set_patch 
         works.
         """
         if ax is not None:
@@ -1249,6 +1249,13 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
             coords[:,i] = np.maximum(coords[:,i], ax.low_value - 0.5*ax.scale)
             coords[:,i] = np.minimum(coords[:,i], ax.high_value + 0.5*ax.scale)
         return coords
+        
+    def _get_line_normal(self):
+        v = np.diff(self.coordinates, axis=0)   # Line vector
+        x = -v[:,1] * self.axes[0].scale / self.axes[1].scale
+        y = v[:,0] * self.axes[1].scale / self.axes[0].scale
+        n = np.array([x, y]).T                    # Normal vector
+        return n / np.linalg.norm(n)            # Normalized
 
     def get_size_in_axes(self):
         """Returns line length in axes coordinates. Requires units on all axes
@@ -1261,6 +1268,13 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         vertices.
         """
         return np.mean(self._pos, axis=0)
+    
+    def _get_width_indicator_coords(self):
+        s = self.size * np.array([ax.scale for ax in self.axes])
+        n = self._get_line_normal()
+        n *= np.linalg.norm(n*s) / 2
+        c = self.coordinates
+        return c+n, c-n
         
     def _update_patch_position(self):
         self._update_patch_geometry()
@@ -1274,11 +1288,15 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         if self.is_on() and self.patch is not None:
             self.patch.set_data(self.coordinates.T)
             self.draw_patch()
-            if self.size[0] >= 5:
-                pass
-                #TODO: Update width indicators
+            wc = self._get_width_indicator_coords()
+            for i in xrange(2):
+                self._width_indicators[i].set_data(wc[i].T)
 
     def _set_patch(self):
+        """Creates the line, and also creates the width indicators if 
+        appropriate.
+        """
+        self.ax.autoscale(False)   # Prevent plotting from rescaling
         xy = self.coordinates
         max_r = max(self.radius_move, self.radius_resize, 
                     self.radius_rotate)
@@ -1293,15 +1311,49 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
             mew=0.1,
             mfc='lime',
             picker=max_r,)
-        if self.size[0] > 1:
-            #TODO: Draw width indicators
-            pass
-#            trans = self.ax.transData
-#            p = np.array(trans.transform(self.coordinates))
-#            
-#            w1 = self.ax.plot(xy[:,0])
-#            self._width_indicators
-        self.ax.autoscale(tight=True)
+        wc = self._get_width_indicator_coords()
+        for i in xrange(2):
+            wi, = self.ax.plot(
+                wc[i][0], wc[i][1],
+                linestyle=':',
+                animated=self.blit,
+                lw=self.linewidth,
+                c=self.color)
+            self._width_indicators.append(wi)
+    
+    def _set_width_indicators(self, value, ax):
+        """Turns the width indicators on/off, in much the same way that 
+        _set_patch works.
+        """
+        if ax is not None:
+            if value:
+                for r in self._width_indicators:
+                    ax.add_artist(r)
+                    r.set_animated(hasattr(ax, 'hspy_fig'))
+            else:
+                for container in [
+                        ax.patches,
+                        ax.lines,
+                        ax.artists,
+                        ax.texts]:
+                    for r in self._width_indicators:
+                        if r in container:
+                            container.remove(r)
+            self.draw_patch()
+            
+    def set_on(self, value):
+        """Same as ancestor, but also turns on/off width indicators.
+        """
+        if value is not self.is_on():
+            self._set_width_indicators(value, self.ax)
+        super(DraggableResizable2DLine, self).set_on(value)
+
+    def _add_patch_to(self, ax):
+        """Same as ancestor, but also adds width indicators if 'size' property 
+        is greater than 4.
+        """
+        super(DraggableResizable2DLine, self)._add_patch_to(ax)
+        self._set_width_indicators(True, ax)
 
             
     def _get_vertex(self, event):
