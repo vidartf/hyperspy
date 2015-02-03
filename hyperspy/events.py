@@ -1,8 +1,7 @@
 import sys, copy
 
-class EventSuppressionContext(object):
-    """
-    Context manager for event suppression. When passed an Events class,
+class EventsSuppressionContext(object):
+    """Context manager for event suppression. When passed an Events class,
     it will suppress all the events in that container when activated by
     using it in a 'with' statement. The previous suppression state will be 
     restored when the 'with' block completes.
@@ -10,11 +9,9 @@ class EventSuppressionContext(object):
     def __init__(self, events):
         self.events = events
         self.old = {}
-        self._in = False
         
     def __enter__(self):
         self.old = {}
-        self._in = True
         try:
             for e in self.events.__dict__.itervalues():
                 self.old[e] = e.suppress
@@ -25,11 +22,26 @@ class EventSuppressionContext(object):
         return self
         
     def __exit__(self, type, value, tb):
-        if self._in:    # Make sure we don't restore twice
-            self._in = False
-            for e, oldval in self.old.iteritems():
-                e.suppress = oldval
+        for e, oldval in self.old.iteritems():
+            e.suppress = oldval
         # Never suppress events
+
+
+class CallbackSuppressionContext(object):
+    """Context manager for suppression of a single callback on an Event. Useful
+    e.g. to prevent infinte recursion if two objects are connected in a loop.
+    """
+    def __init__(self, callback, event, nargs):
+        self.event = event
+        self.callback = callback
+        self.nargs = nargs
+    
+    def __enter__(self):
+        self.event.disconnect(self.callback)
+    
+    def __exit(self, type, value, tb):
+        self.event[self.nargs].connect(self.callback)
+
 
 class Events(object):
     """
@@ -52,7 +64,7 @@ class Events(object):
             obj.val_b = b
         obj.events.values_changed.trigger()
         """
-        return EventSuppressionContext(self)
+        return EventsSuppressionContext(self)
 
 
 class Event(object):
@@ -78,6 +90,9 @@ class Event(object):
     @suppress.setter
     def suppress(self, value):
         self._suppress[0] = value
+    
+    def suppress_single(self, function):
+        return CallbackSuppressionContext(function, self)
 
     def connect(self, function):
         if not callable(function):

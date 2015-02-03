@@ -209,7 +209,7 @@ class BaseInteractiveROI(BaseROI):
         if not isinstance(exclude, set):
             exclude = set(exclude)
         for w in self.widgets - exclude:
-            with w.events.suppress:
+            with w.events.changed.suppress_single(self._on_widget_change):
                 self._apply_roi2widget(w)
             
     def _apply_roi2widget(self, widget):
@@ -261,7 +261,7 @@ class BaseInteractiveROI(BaseROI):
         if axes is not None:
             # Set DataAxes
             widget.axes = axes
-        with widget.events.suppress:
+        with widget.events.changed.suppress_single(self._on_widget_change):
             self._apply_roi2widget(widget)
         if widget.ax is None:
             widget.set_mpl_ax(ax)
