@@ -365,9 +365,9 @@ class BaseInteractiveROI(BaseROI):
             widget.set_mpl_ax(ax)
             
         # Connect widget changes to on_widget_change
-        widget.events.changed.connect(self._on_widget_change)
+        widget.events.changed.connect(self._on_widget_change, 1)
         # When widget closes, remove from internal list
-        widget.events.closed.connect(self._remove_widget)
+        widget.events.closed.connect(self._remove_widget, 1)
         self.widgets.add(widget)
         self.signal_map[signal] = (widget, axes)
         return widget
