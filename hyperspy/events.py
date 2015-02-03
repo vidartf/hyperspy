@@ -30,7 +30,7 @@ class EventsSuppressionContext(object):
 
 class CallbackSuppressionContext(object):
     """Context manager for suppression of a single callback on an Event. Useful
-    e.g. to prevent infinte recursion if two objects are connected in a loop.
+    e.g. to prevent infinite recursion if two objects are connected in a loop.
     """
     def __init__(self, callback, event, nargs):
         self.event = event
