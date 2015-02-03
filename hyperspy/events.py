@@ -41,7 +41,7 @@ class CallbackSuppressionContext(object):
         self.event.disconnect(self.callback)
     
     def __exit(self, type, value, tb):
-        self.event[self.nargs].connect(self.callback)
+        self.event.connect(self.callback, self.nargs)
 
 
 class Events(object):
@@ -75,7 +75,14 @@ class Event(object):
         self.suppress = False
     
     def suppress_single(self, function):
-        return CallbackSuppressionContext(function, self)
+        nargs = None
+        for nargs, c in self._connected.iteritems():
+            for f in c:
+                if f == function:
+                    break
+        if nargs is None:
+            raise KeyError()
+        return CallbackSuppressionContext(function, self, nargs)
 
     def connected(self, nargs='all'):
         if nargs == 'all':
