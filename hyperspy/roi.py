@@ -81,11 +81,11 @@ class BaseROI(t.HasTraits):
         if navigation_signal is not None:
             self.add_widget(navigation_signal)
         if out is None:
-            return hyperspy.interactive.interactive(self.__call__, 
+            return hyperspy.interactive.interactive(signal, self.__call__, 
                                          event=self.events.roi_changed,
                                          signal=signal)
         else:
-            return hyperspy.interactive.interactive(self.__call__, 
+            return hyperspy.interactive.interactive(signal, self.__call__, 
                                          event=self.events.roi_changed,
                                          signal=signal, out=out)
 
@@ -171,9 +171,9 @@ class BaseROI(t.HasTraits):
             widget.set_mpl_ax(ax)
             
         # Connect widget changes to on_widget_change
-        widget.events.changed.connect(self._on_widget_change)
+        widget.events.changed[1].connect(self._on_widget_change)
         # When widget closes, remove from internal list
-        widget.events.closed.connect(self._remove_widget)
+        widget.events.closed[1].connect(self._remove_widget)
         self.widgets.add(widget)
         self.signal_map[signal] = (widget, axes)
         return widget
