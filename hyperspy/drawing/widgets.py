@@ -129,6 +129,8 @@ class InteractivePatchBase(object):
         on_figure_window_close(ax.figure, self.close)
         
     def connect_navigate(self):
+        if self._navigating:
+            self.disconnect_navigate()
         self.axes_manager.connect(self._on_navigate)
         self._navigating = True
         
@@ -291,17 +293,17 @@ class ResizableDraggablePatchBase(DraggablePatchBase):
     size = property(lambda s: s._get_size(), lambda s,v: s._set_size(v))
 
     def increase_size(self):
-        self._set_size(np.array(self.size) + 1)
+        self.size = np.array(self.size) + 1
 
     def decrease_size(self):
-        self._set_size(np.array(self.size) - 1)
+        self.size = np.array(self.size) - 1
             
     def _size_changed(self):
         self.events.resized.trigger(self)
         self.events.changed.trigger(self)
         self._update_patch_size()
 
-    def _get_size_in_axes(self):
+    def get_size_in_axes(self):
         s = list()
         for i in xrange(len(self.axes)):
             s.append(self.axes[i].scale * self._size[i])
@@ -345,7 +347,12 @@ class ResizableDraggablePatchBase(DraggablePatchBase):
             self.events.resized.trigger(self)
         if moved or resized:
             self.events.changed.trigger(self)
-            self._update_patch_geometry()
+            if moved and resized:
+                self._update_patch_geometry()
+            elif moved:
+                self._update_patch_position()
+            else:
+                self._update_patch_size()
     
                                             
 class Patch2DBase(ResizableDraggablePatchBase):
@@ -364,7 +371,7 @@ class Patch2DBase(ResizableDraggablePatchBase):
             
     def _set_patch(self):
         xy = self._get_patch_xy()
-        xs, ys = self._get_size_in_axes()
+        xs, ys = self.get_size_in_axes()
         self.patch = plt.Rectangle(
             xy, xs, ys,
             animated=self.blit,
@@ -374,13 +381,12 @@ class Patch2DBase(ResizableDraggablePatchBase):
             picker=True,)
 
     def _get_patch_xy(self):
-        return self.coordinates - self._get_size_in_axes() / 2.
+        return self.coordinates - self.get_size_in_axes() / 2.
             
     def _get_patch_bounds(self):
-        # l,b,w,h
         xy = self._get_patch_xy()
-        xs, ys = self._get_size_in_axes()
-        return (xy[0], xy[1], xs, ys)
+        xs, ys = self.get_size_in_axes()
+        return (xy[0], xy[1], xs, ys)        # x,y,w,h
     
     def _update_patch_position(self):
         if self.is_on() and self.patch is not None:
@@ -426,8 +432,9 @@ class ResizableDraggableRectangle(Patch2DBase):
         
     @resizers.setter
     def resizers(self, value):
-        if self._resizers != value:
+        if self._resizers != value: 
             self._resizers = value
+            self._set_resizers(value, self.ax)
             
     def _parse_bounds_args(self, args, kwargs):
         if len(args) == 1:
@@ -592,7 +599,7 @@ class ResizableDraggableRectangle(Patch2DBase):
 
     def _get_patch_xy(self):
         coordinates = np.array(self.coordinates)
-        axsize = self._get_size_in_axes()
+        axsize = self.get_size_in_axes()
         return coordinates - np.array(axsize) / (2.0 * self._size)
 
     def _update_patch_position(self):
@@ -645,12 +652,12 @@ class ResizableDraggableRectangle(Patch2DBase):
                         if r in container:
                             container.remove(r)
                 self._resizer_handles = []
-                self.draw_patch()
+            self.draw_patch()
 
     def _get_resizer_size(self):
         invtrans = self.ax.transData.inverted()
         if self.resize_pixel_size is None:
-            rsize = self._get_size_in_axes() / self._size
+            rsize = self.get_size_in_axes() / self._size
         else:
             rsize = np.abs(invtrans.transform(self.resize_pixel_size) -
                         invtrans.transform((0, 0)))
@@ -667,7 +674,7 @@ class ResizableDraggableRectangle(Patch2DBase):
         dl = np.abs(invtrans.transform((border, border)) -
                         invtrans.transform((0, 0)))/2
         rsize = self._get_resizer_size()
-        xs, ys = self._get_size_in_axes()
+        xs, ys = self.get_size_in_axes()
 
         positions = []
         rp = np.array(self._get_patch_xy())
@@ -739,7 +746,7 @@ class ResizableDraggableRectangle(Patch2DBase):
         elif self.picked:
             x = event.mouseevent.xdata
             y = event.mouseevent.ydata
-            dx, dy = self._get_size_in_axes() / self._size
+            dx, dy = self.get_size_in_axes() / self._size
             ix = self._v2i(self.axes[0], x + 0.5*dx)
             iy = self._v2i(self.axes[1], y + 0.5*dy)
             p = self.position
@@ -751,16 +758,14 @@ class ResizableDraggableRectangle(Patch2DBase):
         if self.picked is True and event.inaxes:
             xaxis = self.axes[0]
             yaxis = self.axes[1]
-            dx, dy = self._get_size_in_axes() / self._size
+            dx, dy = self.get_size_in_axes() / self._size
             ix = self._v2i(xaxis, event.xdata + 0.5*dx)
             iy = self._v2i(yaxis, event.ydata + 0.5*dy)
             p = self.position
             ibounds = [p[0], p[1], p[0] + self._size[0], p[1] + self._size[1]]
 
             old_position, old_size = self.position, self.size
-            if self.pick_on_frame is not False:
-                posx = None
-                posy = None
+            
                 corner = self.pick_on_frame
                 if corner % 2 == 0: # Left side start
                     if ix > ibounds[2]:    # flipped to right
@@ -803,10 +808,6 @@ class ResizableDraggableRectangle(Patch2DBase):
                 if self._size[1] < 1:
                     self._size[1] = 1
                 self._validate_geometry(posx, posy)
-            else:
-                ix -= self.pick_offset[0]
-                iy -= self.pick_offset[1]
-                self._validate_geometry(ix, iy)
             self._apply_changes(old_size=old_size, old_position=old_position)
 
 
@@ -853,7 +854,7 @@ class DraggableLabel(DraggablePatchBase):
     def __init__(self, axes_manager):
         super(DraggableLabel, self).__init__(axes_manager)
         self.string = ''
-        self.y = 0.9
+        self.coordinates = (0, 0.9)
         self.text_color = 'black'
         self.bbox = None
 
@@ -868,7 +869,7 @@ class DraggableLabel(DraggablePatchBase):
             ax.transData, ax.transAxes)
         self.patch = ax.text(
             self.coordinates[0],
-            self.y,  # Y value in axes coordinates
+            self.coordinates[1],
             self.string,
             color=self.text_color,
             picker=5,
@@ -896,7 +897,7 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         self.linewidth = 1
         self.radius_move = self.radius_resize = 5
         self.radius_rotate = 10
-        self.func = self.FUNC_NONE
+        self._mfunc = self.FUNC_NONE    # Mouse interaction function
         self._prev_pos = None
         self._rotate_orig = None
         self._width_indicators = []
@@ -909,7 +910,7 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
                 self.axes = self.axes_manager.signal_axes[0:2]
     
     def connect_navigate(self):
-        raise NotImplementedError("Lines cannot be used to navigate yet")
+        raise NotImplementedError("2D lines cannot be used to navigate yet")
         
     def _get_position(self):
         ret = tuple()
@@ -958,7 +959,7 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
             coords[:,i] = np.minimum(coords[:,i], ax.high_value + 0.5*ax.scale)
         return coords
 
-    def _get_size_in_axes(self):
+    def get_size_in_axes(self):
         """Returns line length in axes coordinates. Requires units on all axes
         to be the same to make any physical sense.
         """
@@ -977,7 +978,7 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         if self.is_on() and self.patch is not None:
             self.patch.set_data(self.coordinates.T)
             self.draw_patch()
-            if self.size[0] > 1:
+            if self.size[0] >= 5:
                 pass
                 #TODO: Update width indicators
 
@@ -1027,12 +1028,12 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         
         # Calculate the distances to the vertecies, and find nearest one
         r2 = np.sum(np.power(p - np.array((cx,cy)), 2), axis=1)
-        mini = np.argmin(r2)
-        minr = r2[mini]
+        mini = np.argmin(r2)    # Index of nearest vertex
+        minr2 = r2[mini]        # Distance squared to nearest vertex
         del r2
         # Check for resize: Click within radius_resize from edge points
         radius = self.radius_resize
-        if minr <= radius ** 2:
+        if minr2 <= radius ** 2:
             ret = self.FUNC_RESIZE
             ret |= self.FUNC_A if mini == 0 else self.FUNC_B
             return ret
@@ -1044,7 +1045,7 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         c = np.array((cx,cy))
         t = np.dot(c-A, B-A)    # t[0]: A->click, t[1]: A->B
         bas = np.linalg.norm(B-A)**2
-        if minr <= radius**2:   # If within rotate radius
+        if minr2 <= radius**2:   # If within rotate radius
             if t < 0.0 and mini == 0:   # "Before" A on the line
                 return self.FUNC_ROTATE | self.FUNC_A
             elif t > bas and mini == 1: # "After" B on the line
@@ -1052,7 +1053,7 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
 
         # Check for move: Click within radius_move from any pt on line          
         radius = self.radius_move
-        if t > 0 and t < bas:
+        if 0 < t < bas:
             # A + (t/bas)*(B-A) is closest point on line
             if np.linalg.norm(A + (t/bas)*(B-A) - c) < radius:
                 return self.FUNC_MOVE
@@ -1062,7 +1063,7 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         super(DraggableResizable2DLine, self).onpick(event)
         if self.picked:
             me = event.mouseevent
-            self.func = self.get_func_from_pos(me.x, me.y)
+            self.func = self._get_func_from_pos(me.x, me.y)
             self._prev_pos = [me.xdata, me.ydata]
             if self.func & self.FUNC_ROTATE:
                 self._rotate_orig = self.coordinates
@@ -1093,7 +1094,7 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         self._prev_pos += dx
             
     def resize(self, event):
-        ip = self.get_vertex(event)
+        ip = self._get_vertex(event)
         dx = self.get_diff(event)
         p = self.coordinates
         p[ip,0:2] += dx
@@ -1300,7 +1301,7 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
         r = self._get_range()
         pr = span.range
         if r != pr:
-            dx = (self._get_size_in_axes() / self._size)[0]
+            dx = (self.get_size_in_axes() / self._size)[0]
             ix = self._v2i(self.axes[0], pr[0] + 0.5*dx)
             w = self._v2i(self.axes[0], pr[1] + 0.5*dx) - ix
             old_position, old_size = self.position, self.size
@@ -1311,7 +1312,7 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
                                         
     def _get_range(self):
         c = self.coordinates[0]
-        w = self._get_size_in_axes()[0]
+        w = self.get_size_in_axes()[0]
         c -= w / (2.0 * self._size[0])
         return (c, c + w)
         
