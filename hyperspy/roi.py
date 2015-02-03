@@ -219,7 +219,8 @@ class BaseInteractiveROI(BaseROI):
         if navigation_signal == "same":
             navigation_signal = signal
         if navigation_signal is not None:
-            self.add_widget(navigation_signal)
+            if not self.signal_map.has_key(navigation_signal):
+                self.add_widget(navigation_signal)
         if out is None:
             return hyperspy.interactive.interactive(self.__call__, 
                                          event=self.events.roi_changed,
