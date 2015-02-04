@@ -162,8 +162,6 @@ class BaseROI(t.HasTraits):
                     y = axes[1]
                 else:
                     y = axes_manager[axes[1]]
-                if x.navigate != y.navigate:
-                    raise ValueError("Axes need to be in same space")
         else:
             if axes_manager.navigation_dimension >= nd:
                 x = axes_manager.navigation_axes[0]
@@ -173,9 +171,22 @@ class BaseROI(t.HasTraits):
                 x = axes_manager.signal_axes[0]
                 if nd > 1:
                     y = axes_manager.signal_axes[1]
+            elif nd == 2 and axes_manager.navigation_dimensions == 1 and \
+                    axes_manager.signal_dimension == 1:
+                # We probably have a navigator plot icluding both nav and sig
+                # axes. Use navigator plot.
+                ax = plot.navigator_plot.ax
+                x = axes_manager.signal_axes[0]
+                y = axes_manager.navigation_axes[0]
             else:
-                raise ValueError("Neither space has %d dimensions" % nd)
-        if x.navigate:
+                raise ValueError("Could not find valid axes configuration.")
+        
+        if nd > 1 and x.navigate != y.navigate:
+            # Here we assume that the navigator plot includes one of 
+            # the signal dimensions, and that the user wants to have 
+            # the ROI there.
+            ax = plot.navigator_plot.ax
+        elif x.navigate:
             ax = plot.navigator_plot.ax
         else:
             ax = plot.signal_plot.ax
