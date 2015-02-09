@@ -44,7 +44,7 @@ class BaseROI(t.HasTraits):
         Make a widget for this ROI and use it as a navigator for signal.
         """
         # Check vald plot and navdim >= roi dim
-        ndim = len(self.coords)//2
+        ndim = len(self.coords)
         if signal._plot is None or \
                             signal.axes_manager.navigation_dimension < ndim:
             raise ValueError("Cannot navigate this signal with %s" % \
@@ -81,11 +81,11 @@ class BaseROI(t.HasTraits):
         if navigation_signal is not None:
             self.add_widget(navigation_signal)
         if out is None:
-            return hyperspy.interactive.interactive(signal, self.__call__, 
+            return hyperspy.interactive.interactive(self.__call__, 
                                          event=self.events.roi_changed,
                                          signal=signal)
         else:
-            return hyperspy.interactive.interactive(signal, self.__call__, 
+            return hyperspy.interactive.interactive(self.__call__, 
                                          event=self.events.roi_changed,
                                          signal=signal, out=out)
 
@@ -193,7 +193,7 @@ class BaseROI(t.HasTraits):
             self._remove_widget(w)
     
     def _parse_axes(self, axes, axes_manager, plot):
-        nd = len(axes)
+        nd = len(self.coords)
         if isinstance(axes, basestring):
             # Specifies space
             if axes.startswith("nav"):
