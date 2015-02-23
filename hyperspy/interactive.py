@@ -27,7 +27,7 @@ class Interactive:
         self.f(out=self.out, *self.args, **self.kwargs)
 
 
-def interactive(f, event, *args, **kwargs):
+def interactive(f, event, recompute_out_event=None, *args, **kwargs):
     """Update operation result when a given event is triggered.
 
     Parameters
@@ -46,5 +46,5 @@ def interactive(f, event, *args, **kwargs):
 
     """
 
-    cls = Interactive(f, event, *args, **kwargs)
+    cls = Interactive(f, event, recompute_out_event, *args, **kwargs)
     return cls.out
