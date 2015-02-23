@@ -73,6 +73,7 @@ from hyperspy.misc.utils import underline
 from hyperspy.misc.borrowed.astroML.histtools import histogram
 from hyperspy.drawing.utils import animate_legend
 from hyperspy.events import Events, Event
+from hyperspy.interactive import interactive
 
 
 
@@ -3069,11 +3070,17 @@ class Signal(MVA,
                 else:
                     navigator = self
                     while navigator.axes_manager.signal_dimension > 0:
-                        navigator = navigator.sum(-1)
+                        navigator = interactive(navigator.sum, 
+                                                navigator.events.data_changed,
+                                                None, -1)
                 if navigator.axes_manager.navigation_dimension == 1:
-                    navigator = navigator.as_spectrum(0)
+                    navigator = interactive(navigator.as_spectrum, 
+                                            navigator.events.data_changed,
+                                            None, 0)
                 else:
-                    navigator = navigator.as_image((0, 1))
+                    navigator = interactive(navigator.as_image, 
+                                            navigator.events.data_changed,
+                                            None, (0, 1))
             else:
                 navigator = None
         # Navigator properties
@@ -3651,6 +3658,7 @@ class Signal(MVA,
                 s._remove_axis(axis)
                 return s
             else:
+                out.events.data_changed.trigger()
                 return
 
         if axis == "navigation":
@@ -4475,7 +4483,7 @@ class Signal(MVA,
         nitem = nitem if nitem > 0 else 1
         return nitem
 
-    def as_spectrum(self, spectral_axis):
+    def as_spectrum(self, spectral_axis, out=None):
         """Return the Signal as a spectrum.
 
         The chosen spectral axis is moved to the last index in the
@@ -4503,9 +4511,13 @@ class Signal(MVA,
         sp = self.rollaxis(spectral_axis, -1 + 3j)
         sp.metadata.Signal.record_by = "spectrum"
         sp._assign_subclass()
-        return sp
+        if out is None:
+            return sp
+        else:
+            out.data[:] = sp.data
+            out.events.data_changed.trigger()
 
-    def as_image(self, image_axes):
+    def as_image(self, image_axes, out=None):
         """Convert signal to image.
 
         The chosen image axes are moved to the last indices in the
@@ -4544,7 +4556,11 @@ class Signal(MVA,
             iaxes[1] - np.argmax(iaxes) + 3j, -2 + 3j)
         im.metadata.Signal.record_by = "image"
         im._assign_subclass()
-        return im
+        if out is None:
+            return im
+        else:
+            out.data[:] = im.data
+            out.events.data_changed.trigger()
 
     def _assign_subclass(self):
         mp = self.metadata
