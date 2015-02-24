@@ -19,7 +19,8 @@ class Interactive:
     def _recompute_out(self):
         out = self.f(*self.args, **self.kwargs)
         self.out.data = out.data
-        changes = self.out.axes_manager.update_from(out.axes_manager)
+        changes = self.out.axes_manager.update_from(out.axes_manager, 
+                                                    ('offset', 'scale', 'size'))
         if changes:
             self.out.events.axes_changed.trigger(self.out)
 
