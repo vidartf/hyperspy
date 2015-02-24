@@ -3072,15 +3072,17 @@ class Signal(MVA,
                     while navigator.axes_manager.signal_dimension > 0:
                         navigator = interactive(navigator.sum, 
                                                 navigator.events.data_changed,
-                                                None, -1)
+                                                navigator.events.axes_changed,
+                                                -1)
                 if navigator.axes_manager.navigation_dimension == 1:
                     navigator = interactive(navigator.as_spectrum, 
                                             navigator.events.data_changed,
-                                            None, 0)
+                                            navigator.events.axes_changed, 0)
                 else:
                     navigator = interactive(navigator.as_image, 
                                             navigator.events.data_changed,
-                                            None, (0, 1))
+                                            navigator.events.axes_changed,
+                                            (0, 1))
             else:
                 navigator = None
         # Navigator properties
