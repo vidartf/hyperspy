@@ -622,11 +622,7 @@ class RectangularROI(BaseInteractiveROI):
     def _apply_roi2widget(self, widget):
         widget.set_bounds(left=self.left, bottom=self.bottom, 
                           right=self.right, top=self.top)
-<<<<<<< HEAD
-        
-=======
 
->>>>>>> NEW_ROI_navigation
     def _get_widget_type(self, axes, signal):
         return widgets.ResizableDraggableRectangle
 
