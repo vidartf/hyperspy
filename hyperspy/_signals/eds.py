@@ -692,7 +692,8 @@ class EDSSpectrum(Spectrum):
             a_eng = self._get_line_energy(element + '_' + line[0] + 'a')
             intensity.append(self[..., a_eng].data * relative_factor)
 
-        self.plot(**kwargs)
+        if self._plot is None or not self._plot.is_active():
+            self.plot(**kwargs)
         for i in range(len(line_energy)):
             line = marker.Marker()
             line.type = 'line'
