@@ -344,7 +344,7 @@ class BaseInteractiveROI(BaseROI):
         without doing anything to events.
         """
         c = widget.coordinates
-        s = widget._get_size_in_axes()
+        s = widget.get_size_in_axes()
         self.coords = zip(c, c+s)
 
     def _on_widget_change(self, widget):
