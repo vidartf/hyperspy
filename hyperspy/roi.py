@@ -244,14 +244,14 @@ class Point2DROI(BasePointROI):
     x, y = (t.CFloat(t.Undefined),) * 2
 
     def __init__(self, x, y):
-        self.x = y
+        self.x, self.y = x, y
 
     def _get_coords(self):
-        return ((self.x, self.y),)
+        return ((self.x,), (self.y,))
 
     def _set_coords(self, value):
         if self.coords != value:
-            self.x, self.y = value[0]
+            self.x, self.y = value[0, 0], value[1, 0]
 
     def _x_changed(self, old, new):
         self.update()
