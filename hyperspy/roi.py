@@ -311,6 +311,42 @@ class BaseInteractiveROI(BaseROI):
                                    event=self.events.roi_changed,
                                    signal=signal, out=out)
 
+    def navigate(self, signal):
+        """Make a widget for this ROI and use it as a navigator for passed 
+        signal.
+        """
+        # Check valid plot and navdim >= roi dim
+        ndim = len(self.coords)
+        if signal._plot is None or \
+                            signal.axes_manager.navigation_dimension < ndim:
+            raise ValueError("Cannot navigate this signal with %s" % \
+                             self.__class__.__name__, signal)
+
+        nav_axes = signal.axes_manager.navigation_axes[0:ndim+1]
+
+        def nav_signal_function(axes_manager=None):
+            if axes_manager is None:
+                axes_manager = signal.axes_manager
+            nav_idx = list()
+            for ax in nav_axes:
+                nav_idx.append(axes_manager._axes.index(ax)) 
+            nav_idx = tuple(nav_idx)
+            slices = self._make_slices(axes_manager._axes, nav_axes)
+            data = np.mean(signal.data.__getitem__(slices), nav_idx)
+            return np.atleast_1d(data)
+        
+        signal.signal_callback = nav_signal_function
+        sp = signal._plot.signal_plot
+        sp.update()
+        w = self.add_widget(signal, axes=nav_axes, color='red')
+        w.events.resized.connect(sp.update, 0)
+        w.connect_navigate()
+        if signal._plot.pointer is not None:
+            signal._plot.pointer.close()
+        signal._plot.pointer = w
+        signal._plot.navigator_plot.update()
+        return w
+
     def _set_coords_from_widget(self, widget):
         """Sets the internal representation of the ROI from the passed widget,
         without doing anything to events.

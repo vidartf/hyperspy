@@ -2524,6 +2524,7 @@ class Signal(MVA,
         kwds['data'] = data
         self._load_dictionary(kwds)
         self._plot = None
+        self.signal_callback = None
         self.auto_replot = True
         self.inav = SpecialSlicers(self, True)
         self.isig = SpecialSlicers(self, False)
@@ -2951,8 +2952,13 @@ class Signal(MVA,
     def __call__(self, axes_manager=None):
         if axes_manager is None:
             axes_manager = self.axes_manager
-        return np.atleast_1d(
-            self.data.__getitem__(axes_manager._getitem_tuple))
+        
+        if self.signal_callback is None:
+            return np.atleast_1d(
+                self.data.__getitem__(axes_manager._getitem_tuple)) 
+        else:
+            return np.atleast_1d(self.signal_callback(axes_manager))
+        
 
     def plot(self, navigator="auto", axes_manager=None):
         """Plot the signal at the current coordinates.
@@ -3615,6 +3621,22 @@ class Signal(MVA,
                 return
             self.metadata.Signal.record_by = self._record_by
             self._assign_subclass()
+    
+    def _update_calibration_from(self, axes_manager, fields=('offset', 'scale')):
+        self_lut = {a._origin_id: a for a in self.axes_manager._axes}
+        any_changes = False
+        for src_axis in axes_manager._axes:
+            if src_axis._origin_id not in self_lut:
+                continue
+            dst_axis = self_lut.pop(src_axis._origin_id)
+            changed = {}
+            for f in fields:
+                if getattr(dst_axis, f) != getattr(src_axis, f):
+                    changed[f] = getattr(src_axis, f)
+            if len(changed) > 0:
+                dst_axis.trait_set(**changed)
+                any_changes = True
+        return any_changes
 
     def _apply_function_on_data_and_remove_axis(self, function, axis,
                                                 out=None):
