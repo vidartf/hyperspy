@@ -229,7 +229,7 @@ class Point1DROI(BasePointROI):
 
     def _set_coords(self, value):
         if self.coords != value:
-            self.value = value[0, 0]
+            self.value = value[0][0]
 
     def __repr__(self):
         return "%s(value=%f)" % (
@@ -251,7 +251,7 @@ class Point2DROI(BasePointROI):
 
     def _set_coords(self, value):
         if self.coords != value:
-            self.x, self.y = value[0, 0], value[1, 0]
+            (self.x,), (self.y,) = value
 
     def _x_changed(self, old, new):
         self.update()
