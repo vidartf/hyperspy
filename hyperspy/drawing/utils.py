@@ -131,7 +131,7 @@ def plot_RGB_map(im_list, normalization='single', dont_plot=False):
         rgb[:, :, 2] = im_list[2].data.squeeze()
     if normalization == 'single':
         for i in xrange(rgb.shape[2]):
-            rgb[:, :, i] /= rgb[:,:, i].max()
+            rgb[:, :, i] /= rgb[:, :, i].max()
     elif normalization == 'global':
         rgb /= rgb.max()
     rgb = rgb.clip(0, rgb.max())
@@ -482,7 +482,8 @@ def plot_spectra(
     elif style == 'mosaic':
         default_fsize = plt.rcParams["figure.figsize"]
         figsize = (default_fsize[0], default_fsize[1] * len(spectra))
-        fig, subplots = plt.subplots(len(spectra), 1, figsize=figsize, **kwargs)
+        fig, subplots = plt.subplots(
+            len(spectra), 1, figsize=figsize, **kwargs)
         if legend is None:
             legend = [legend] * len(spectra)
         for spectrum, ax, color, line_style, legend in zip(spectra,

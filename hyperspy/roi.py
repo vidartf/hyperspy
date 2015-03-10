@@ -313,29 +313,29 @@ class BaseInteractiveROI(BaseROI):
                                    signal=signal, out=out)
 
     def navigate(self, signal):
-        """Make a widget for this ROI and use it as a navigator for passed 
+        """Make a widget for this ROI and use it as a navigator for passed
         signal.
         """
         # Check valid plot and navdim >= roi dim
         ndim = len(self.coords)
         if signal._plot is None or \
-                            signal.axes_manager.navigation_dimension < ndim:
-            raise ValueError("Cannot navigate this signal with %s" % \
+                signal.axes_manager.navigation_dimension < ndim:
+            raise ValueError("Cannot navigate this signal with %s" %
                              self.__class__.__name__, signal)
 
-        nav_axes = signal.axes_manager.navigation_axes[0:ndim+1]
+        nav_axes = signal.axes_manager.navigation_axes[0:ndim + 1]
 
         def nav_signal_function(axes_manager=None):
             if axes_manager is None:
                 axes_manager = signal.axes_manager
             nav_idx = list()
             for ax in nav_axes:
-                nav_idx.append(axes_manager._axes.index(ax)) 
+                nav_idx.append(axes_manager._axes.index(ax))
             nav_idx = tuple(nav_idx)
             slices = self._make_slices(axes_manager._axes, nav_axes)
             data = np.mean(signal.data.__getitem__(slices), nav_idx)
             return np.atleast_1d(data)
-        
+
         signal.signal_callback = nav_signal_function
         sp = signal._plot.signal_plot
         sp.update()

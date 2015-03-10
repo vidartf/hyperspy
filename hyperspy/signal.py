@@ -76,7 +76,6 @@ from hyperspy.events import Events, Event
 from hyperspy.interactive import interactive
 
 
-
 class Signal2DTools(object):
 
     def estimate_shift2D(self,
@@ -2953,13 +2952,12 @@ class Signal(MVA,
     def __call__(self, axes_manager=None):
         if axes_manager is None:
             axes_manager = self.axes_manager
-        
+
         if self.signal_callback is None:
             return np.atleast_1d(
-                self.data.__getitem__(axes_manager._getitem_tuple)) 
+                self.data.__getitem__(axes_manager._getitem_tuple))
         else:
             return np.atleast_1d(self.signal_callback(axes_manager))
-        
 
     def plot(self, navigator="auto", axes_manager=None):
         """Plot the signal at the current coordinates.
@@ -3070,16 +3068,16 @@ class Signal(MVA,
                 else:
                     navigator = self
                     while navigator.axes_manager.signal_dimension > 0:
-                        navigator = interactive(navigator.sum, 
+                        navigator = interactive(navigator.sum,
                                                 navigator.events.data_changed,
                                                 navigator.events.axes_changed,
                                                 -1)
                 if navigator.axes_manager.navigation_dimension == 1:
-                    navigator = interactive(navigator.as_spectrum, 
+                    navigator = interactive(navigator.as_spectrum,
                                             navigator.events.data_changed,
                                             navigator.events.axes_changed, 0)
                 else:
-                    navigator = interactive(navigator.as_image, 
+                    navigator = interactive(navigator.as_image,
                                             navigator.events.data_changed,
                                             navigator.events.axes_changed,
                                             (0, 1))
@@ -3167,8 +3165,8 @@ class Signal(MVA,
                     self.tmp_parameters.folder,
                     self.tmp_parameters.filename)
                 extension = (self.tmp_parameters.extension
-                            if not extension
-                            else extension)
+                             if not extension
+                             else extension)
             elif self.metadata.has_item('General.original_filename'):
                 filename = self.metadata.General.original_filename
             else:
@@ -3630,8 +3628,9 @@ class Signal(MVA,
                 return
             self.metadata.Signal.record_by = self._record_by
             self._assign_subclass()
-    
-    def _update_calibration_from(self, axes_manager, fields=('offset', 'scale')):
+
+    def _update_calibration_from(
+            self, axes_manager, fields=('offset', 'scale')):
         self_lut = {a._origin_id: a for a in self.axes_manager._axes}
         any_changes = False
         for src_axis in axes_manager._axes:
@@ -3655,7 +3654,7 @@ class Signal(MVA,
             else:
                 s = out
             s.data = function(self.data,
-                            axis=self.axes_manager[axis].index_in_array)
+                              axis=self.axes_manager[axis].index_in_array)
             if out is None:
                 s._remove_axis(axis)
                 return s
@@ -3667,11 +3666,11 @@ class Signal(MVA,
             if out is None:
                 s = self.get_current_signal(auto_filename=False,
                                             auto_title=False)
-                s.data = s.data.copy() # Don't overwrite self.data 
+                s.data = s.data.copy()  # Don't overwrite self.data
             else:
                 s = out
             iaxes = sorted([ax.index_in_array
-                           for ax in self.axes_manager.navigation_axes])
+                            for ax in self.axes_manager.navigation_axes])
         elif axis == "signal":
             if out is None:
                 s = self._get_navigation_signal()

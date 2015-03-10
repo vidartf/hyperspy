@@ -70,32 +70,32 @@ class Spectrum(Signal):
         # Parameters
         #----------------
         # microscope : {None | 'TEM' | 'SEM'}
-            # If None the microscope defined in signal_type is used
-            #(EDS_TEM or EDS_SEM). If 'TEM' or 'SEM', the signal_type is
-            # overwritten.
+        # If None the microscope defined in signal_type is used
+        #(EDS_TEM or EDS_SEM). If 'TEM' or 'SEM', the signal_type is
+        # overwritten.
         #"""
         #from hyperspy._signals.eds_tem import EDSTEMSpectrum
         #from hyperspy._signals.eds_sem import EDSSEMSpectrum
         # if microscope == None:
-            # if self.metadata.Signal.signal_type == 'EDS_SEM':
-                #microscope = 'SEM'
-            # elif self.metadata.Signal.signal_type == 'EDS_TEM':
-                #microscope = 'TEM'
-            # else:
-                # raise ValueError("Set a microscope. Valid microscopes "
-                #"are: 'SEM' or 'TEM'")
+        # if self.metadata.Signal.signal_type == 'EDS_SEM':
+        #microscope = 'SEM'
+        # elif self.metadata.Signal.signal_type == 'EDS_TEM':
+        #microscope = 'TEM'
+        # else:
+        # raise ValueError("Set a microscope. Valid microscopes "
+        #"are: 'SEM' or 'TEM'")
         #dic = self._get_signal_dict()
         # if microscope == 'SEM':
-            #dic['metadata']['signal_type'] = 'EDS_SEM'
-            #eds = EDSSEMSpectrum(**dic)
+        #dic['metadata']['signal_type'] = 'EDS_SEM'
+        #eds = EDSSEMSpectrum(**dic)
         # elif microscope == 'TEM':
-            #dic['metadata']['signal_type'] = 'EDS_TEM'
-            #eds = EDSTEMSpectrum(**dic)
+        #dic['metadata']['signal_type'] = 'EDS_TEM'
+        #eds = EDSTEMSpectrum(**dic)
         # else:
-            # raise ValueError("Unkown microscope. Valid microscopes "
-                #"are: 'SEM' or 'TEM'")
+        # raise ValueError("Unkown microscope. Valid microscopes "
+        #"are: 'SEM' or 'TEM'")
         # if hasattr(self, 'learning_results'):
-            #eds.learning_results = copy.deepcopy(self.learning_results)
+        #eds.learning_results = copy.deepcopy(self.learning_results)
         #eds.tmp_parameters = self.tmp_parameters.deepcopy()
         # return eds
     def to_image(self):

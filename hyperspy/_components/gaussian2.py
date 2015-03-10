@@ -29,11 +29,11 @@ sigma2fwhm = 2 * math.sqrt(2 * math.log(2))
 class Gaussian2(Component):
 
     """Normalized gaussian function component, with a fwhm parameter instead
-    of the sigma parameter, and a height parameter instead of the A parameter 
-    (scaling difference of sigma * sqrt(2*Pi)). This makes the parameter vs. 
-    peak maximum independent of sigma, and thereby makes locking of the 
+    of the sigma parameter, and a height parameter instead of the A parameter
+    (scaling difference of sigma * sqrt(2*Pi)). This makes the parameter vs.
+    peak maximum independent of sigma, and thereby makes locking of the
     parameter more viable. As long as there it no binning, the height parameter
-    corresponds directly to the peak maximum, if not, the value is scaled by a 
+    corresponds directly to the peak maximum, if not, the value is scaled by a
     linear constant (signal_axis.scale).
 
     .. math::
@@ -79,7 +79,7 @@ class Gaussian2(Component):
         s = self.sigma
         c = self.centre.value
         h = self.height.value
-        x1 = (x-c)
+        x1 = (x - c)
         return h * np.exp(-x1**2 / (2 * s**2))
 
     def grad_height(self, x):
@@ -89,15 +89,15 @@ class Gaussian2(Component):
         c = self.centre.value
         s2 = self.sigma ** 2
         A = self.A
-        x1 = (x-c)
+        x1 = (x - c)
         return ((x1**2 * np.exp(-x1**2 / (2 * s2)) * A) / (sqrt2pi * s2 ** 2)) \
-                - (np.exp(-x1**2 / (2 * s2)) * A) / (sqrt2pi * s2)
+            - (np.exp(-x1**2 / (2 * s2)) * A) / (sqrt2pi * s2)
 
     def grad_centre(self, x):
         c = self.centre.value
         s = self.sigma
         A = self.A
-        x1 = (x-c)
+        x1 = (x - c)
         return (x1 * np.exp(-x1 ** 2 / (2 * s**2)) * A) / (sqrt2pi * s**3)
 
     def estimate_parameters(self, signal, x1, x2, only_current=False):
@@ -210,4 +210,4 @@ class Gaussian2(Component):
         Utility function to get gaussian integral as Signal
         """
         return self.height.as_signal() * self.fwhm.as_signal() * \
-                sqrt2pi / sigma2fwhm
+            sqrt2pi / sigma2fwhm

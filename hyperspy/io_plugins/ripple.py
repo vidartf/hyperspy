@@ -180,7 +180,8 @@ def parse_ripple(fp):
         err = '"data-length" for float "data-type" must be "4" or "8".\n'
         err += 'Check %s' % fp.name
         raise IOError(err)
-    if rpl_info['data-length'] == '1' and rpl_info['byte-order'] != 'dont-care':
+    if rpl_info[
+            'data-length'] == '1' and rpl_info['byte-order'] != 'dont-care':
         err = '"data-length" and "byte-order" mismatch.\n'
         err += '"data-length" cannot be "1" if "byte-order" is not "dont-care" '
         err += 'and vice versa.'

@@ -72,7 +72,7 @@ class DataAxis(t.HasTraits):
     index = t.Range('low_index', 'high_index')
     axis = t.Array()
     continuous_value = t.Bool(False)
-    
+
     _origin_id_counter = 0
 
     def __init__(self,
@@ -690,10 +690,10 @@ class AxesManager(t.HasTraits):
         self.signal_size = (np.cumprod(self.signal_shape)[-1]
                             if self.signal_shape else 0)
         self._update_max_index()
-    
+
     def update_from(self, axes_manager, fields=('offset', 'scale')):
-        """Copy values of specified axes fields from the passed AxesManager. 
-        
+        """Copy values of specified axes fields from the passed AxesManager.
+
         Parameters
         ----------
         axes_manager : AxesManager
@@ -701,7 +701,7 @@ class AxesManager(t.HasTraits):
         fields : iterable container of strings
             The name of the fields to update. If the field does not exist in
             either of the AxesManagers, an AttributeError will be raised.
-        
+
         Returns a bolean indicating whether any changes were made
         """
         any_changes = False

@@ -1362,9 +1362,9 @@ class TiffPage(object):
             raise ValueError("corrupted page")
 
         if (not self.is_tiled and (self.is_stk or (not self.compression
-            and bits_per_sample in (8, 16, 32, 64)
-            and all(offsets[i] == offsets[i + 1] - byte_counts[i]
-                    for i in range(len(offsets) - 1))))):
+                                                   and bits_per_sample in (8, 16, 32, 64)
+                                                   and all(offsets[i] == offsets[i + 1] - byte_counts[i]
+                                                           for i in range(len(offsets) - 1))))):
             # contiguous data
             if (memmap and not (self.is_tiled or self.predictor or
                                 ('extra_samples' in self.tags) or
@@ -2403,7 +2403,8 @@ def unpackrgb(data, dtype='<B', bitspersample=(5, 6, 5), rescale=True):
     """
     dtype = numpy.dtype(dtype)
     bits = int(numpy.sum(bitspersample))
-    if not (bits <= 32 and all(i <= dtype.itemsize * 8 for i in bitspersample)):
+    if not (bits <= 32 and all(
+            i <= dtype.itemsize * 8 for i in bitspersample)):
         raise ValueError("sample size not supported %s" % str(bitspersample))
     dt = next(i for i in 'BHI' if numpy.dtype(i).itemsize * 8 >= bits)
     data = numpy.fromstring(data, dtype.byteorder + dt)

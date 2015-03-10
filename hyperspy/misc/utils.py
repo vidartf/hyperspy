@@ -322,7 +322,7 @@ class DictionaryTreeBrowser(object):
 
         """
         return sorted([key for key in self.__dict__.keys()
-                      if not key.startswith("_")])
+                       if not key.startswith("_")])
 
     def as_dictionary(self):
         """Returns its dictionary representation.
@@ -622,7 +622,7 @@ def find_subclasses(mod, cls):
 
     """
     return dict([(name, obj) for name, obj in inspect.getmembers(mod)
-                if inspect.isclass(obj) and issubclass(obj, cls)])
+                 if inspect.isclass(obj) and issubclass(obj, cls)])
 
 
 def isiterable(obj):
