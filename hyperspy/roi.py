@@ -20,6 +20,7 @@ class BaseROI(t.HasTraits):
         super(BaseROI, self).__init__()
         self.events = Events()
         self.events.roi_changed = Event()
+        self.signal_map = dict()
 
     def _get_coords(self):
         """_get_coords() is the getter for the coords property, and should be
@@ -472,7 +473,7 @@ class Point1DROI(BasePointROI):
 
     def _set_coords(self, value):
         if self.coords != value:
-            self.value = value[0, 0]
+            self.value = value[0][0]
 
     def _apply_roi2widget(self, widget):
         widget.coordinates = self.value
@@ -520,7 +521,7 @@ class Point2DROI(BaseInteractiveROI):
 
     def _set_coords(self, value):
         if self.coords != value:
-            self.x, self.y = value[0, 0], value[1, 0]
+            (self.x,), (self.y,) = value
 
     def _x_changed(self, old, new):
         self.update()
