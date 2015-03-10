@@ -94,7 +94,6 @@ class Event(object):
         return CallbackSuppressionContext(function, self, nargs)
 
     def connected(self, nargs=None):
-        """
         """Connected functions. The default behavior is to include all
         functions, but by using the 'nargs' argument, it can be filtered by
         function signature.
