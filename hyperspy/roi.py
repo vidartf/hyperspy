@@ -110,9 +110,9 @@ class BaseROI(t.HasTraits):
             return roi
         else:
             signal.__getitem__(slices, out=out)
-    
-    def _parse_axes(self, axes, axes_manager, plot):
-        """Utility function to parse the 'axes' argument to a tuple of 
+
+    def _parse_axes(self, axes, axes_manager):
+        """Utility function to parse the 'axes' argument to a tuple of
         DataAxis, and find the matplotlib Axes that contains it.
         
         Arguments
@@ -174,28 +174,38 @@ class BaseROI(t.HasTraits):
             elif nd == 2 and axes_manager.navigation_dimensions == 1 and \
                     axes_manager.signal_dimension == 1:
                 # We probably have a navigator plot icluding both nav and sig
-                # axes. Use navigator plot.
-                ax = plot.navigator_plot.ax
+                # We probably have a navigator plot including both nav and sig
+                # axes.
                 x = axes_manager.signal_axes[0]
                 y = axes_manager.navigation_axes[0]
             else:
                 raise ValueError("Could not find valid axes configuration.")
-        
-        if nd > 1 and x.navigate != y.navigate:
-            # Here we assume that the navigator plot includes one of 
-            # the signal dimensions, and that the user wants to have 
+
+        if nd > 1:
+            axes = (x, y)
+        else:
+            axes = (x,)
+        return axes
+
+    def _get_mpl_ax(self, plot, axes):
+        """Returns MPL Axes that contains the ROI.
+
+        plot : MPL_HyperExplorer
+            The space of the first DataAxis in axes will be used to extract the
+            matplotlib Axes.
+        """
+        nd = len(axes)
+
+        if nd > 1 and axes[0].navigate != axes[1].navigate:
+            # Here we assume that the navigator plot includes one of
+            # the signal dimensions, and that the user wants to have
             # the ROI there.
             ax = plot.navigator_plot.ax
-        elif x.navigate:
+        elif axes[0].navigate:
             ax = plot.navigator_plot.ax
         else:
             ax = plot.signal_plot.ax
-        
-        if nd > 1:
-            axes = (x,y)
-        else:
-            axes = (x,)
-        return axes, ax
+        return ax
 
 
 class BasePointROI(BaseROI):
