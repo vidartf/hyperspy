@@ -45,7 +45,7 @@ class CallbackSuppressionContext(object):
     def __enter__(self):
         self.event.disconnect(self.callback)
 
-    def __exit(self, type, value, tb):
+    def __exit__(self, type, value, tb):
         self.event.connect(self.callback, self.nargs)
 
 
@@ -85,12 +85,14 @@ class Event(object):
         connected callbacks will trigger.
         """
         nargs = None
+        found = False
         for nargs, c in self._connected.iteritems():
             for f in c:
                 if f == function:
+                    found = True
                     break
-        if nargs is None:
-            raise KeyError()
+        if not found:
+            return None
         return CallbackSuppressionContext(function, self, nargs)
 
     def connected(self, nargs=None):
