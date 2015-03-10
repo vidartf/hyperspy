@@ -93,14 +93,15 @@ class Event(object):
             raise KeyError()
         return CallbackSuppressionContext(function, self, nargs)
 
-    def connected(self, nargs='all'):
+    def connected(self, nargs=None):
+        """
         """Connected functions. The default behavior is to include all
         functions, but by using the 'nargs' argument, it can be filtered by
         function signature.
         """
-        if nargs == 'all':
+        if nargs is None:
             ret = set()
-            ret.update(self._connected.itervalues())
+            ret.update(*self._connected.values())
             return ret
         else:
             return self._connected[nargs]
