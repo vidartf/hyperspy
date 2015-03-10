@@ -20,6 +20,7 @@ class BaseROI(t.HasTraits):
         super(BaseROI, self).__init__()
         self.events = Events()
         self.events.roi_changed = Event()
+        self.signal_map = dict()
 
     def _get_coords(self):
         """_get_coords() is the getter for the coords property, and should be
