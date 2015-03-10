@@ -208,9 +208,7 @@ class BasePointROI(BaseROI):
     """Base ROI class for point ROIs, i.e. ROIs with a unit size in each of its
     dimensions.
     """
-    def _set_coords_from_widget(self, widget):
-        c = widget.coordinates
-        self.coords = zip(c)
+    pass
 
 
 class Point1DROI(BasePointROI):
@@ -239,7 +237,7 @@ class Point1DROI(BasePointROI):
             self.value)
 
 
-class Point2DROI(BaseROI):
+class Point2DROI(BasePointROI):
     """Selects a single point in a 2D space. The coordinates of the point in
     the 2D space are stored in the traits 'x' and 'y'.
     """
