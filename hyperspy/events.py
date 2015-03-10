@@ -43,10 +43,12 @@ class CallbackSuppressionContext(object):
         self.nargs = nargs
 
     def __enter__(self):
-        self.event.disconnect(self.callback)
+        if self.callback is not None:
+            self.event.disconnect(self.callback)
 
     def __exit__(self, type, value, tb):
-        self.event.connect(self.callback, self.nargs)
+        if self.callback is not None:
+            self.event.connect(self.callback, self.nargs)
 
 
 class Events(object):
@@ -92,7 +94,7 @@ class Event(object):
                     found = True
                     break
         if not found:
-            return None
+            function = None
         return CallbackSuppressionContext(function, self, nargs)
 
     def connected(self, nargs=None):
