@@ -38,6 +38,7 @@ class SpectrumFigure(BlittedFigure):
         self.right_zero_lock = False
         self.ax_lines = list()
         self.right_ax_lines = list()
+        self.ax_markers = list()
         self.axes_manager = None
         self.right_axes_manager = None
 
@@ -98,6 +99,12 @@ class SpectrumFigure(BlittedFigure):
                 self._color_cycles[line.type].color_cycle.remove(
                     rgba_color)
 
+    def add_marker(self, marker):
+        marker.ax = self.ax
+        if marker.axes_manager is None:
+            marker.axes_manager = self.axes_manager
+        self.ax_markers.append(marker)
+
     def plot(self):
         self.ax.set_xlabel(self.xlabel)
         self.ax.set_ylabel(self.ylabel)
@@ -108,7 +115,11 @@ class SpectrumFigure(BlittedFigure):
             line.plot()
             x_axis_lower_lims.append(line.axis[0])
             x_axis_upper_lims.append(line.axis[-1])
+        for marker in self.ax_markers:
+            marker.plot()
         plt.xlim(np.min(x_axis_lower_lims), np.max(x_axis_upper_lims))
+        # To be discussed
+        self.axes_manager.connect(self.update)
         if hasattr(self.figure, 'tight_layout'):
             try:
                 self.figure.tight_layout()
@@ -118,6 +129,8 @@ class SpectrumFigure(BlittedFigure):
                 pass
 
     def close(self):
+        for marker in self.ax_markers:
+            marker.close()
         for line in self.ax_lines + self.right_ax_lines:
             line.close()
         try:
@@ -151,8 +164,12 @@ class SpectrumFigure(BlittedFigure):
         
 
     def update(self):
+        for marker in self.ax_markers:
+            marker.update()
         for line in self.ax_lines + self.right_ax_lines:
             line.update()
+        # To be discussed
+        # self.ax.hspy_fig._draw_animated()
 
 
 class SpectrumLine(object):
@@ -336,7 +353,11 @@ class SpectrumLine(object):
                 self.ax.set_ylim(y_min, y_max)
         if self.plot_indices is True:
             self.text.set_text((self.axes_manager.indices))
-        self.ax.hspy_fig._draw_animated()
+        try:
+            self.ax.hspy_fig._draw_animated()
+        except:
+            pass
+        # self.ax.hspy_fig._draw_animated()
         # self.ax.figure.canvas.draw_idle()
         
     def get_autolim(self):
