@@ -12,7 +12,7 @@ class Interactive:
         else:
             self.out = self.f(*args, **kwargs)
         if recompute_out_event:
-            recompute_out_event.connect(self._recompute_out)
+            recompute_out_event.connect(self._recompute_out, 0)
         event.connect(self.update)
         self.out.events.data_changed.connect(self.out.update_plot, 0)
         self.out.events.axes_changed.connect(self.out._replot, 0)
@@ -21,7 +21,8 @@ class Interactive:
         out = self.f(*self.args, **self.kwargs)
         self.out.data = out.data
         changes = self.out.axes_manager.update_from(out.axes_manager,
-                                                    ('offset', 'scale', 'size'))
+                                                    ('offset', 'scale',
+                                                     'size'))
         if changes:
             self.out.events.axes_changed.trigger(self.out)
 
