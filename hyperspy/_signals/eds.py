@@ -287,10 +287,22 @@ class EDSSpectrum(Spectrum):
 
         self.metadata.Sample.elements = sorted(list(elements_))
 
+    def _parse_only_lines(self, only_lines):
+        if only_lines is None:
+            return None
+        else:
+            only_lines = list(only_lines)
+            for only_line in only_lines:
+                if only_line == 'a':
+                    only_lines.extend(['Ka', 'La', 'Ma'])
+                elif only_line == 'b':
+                    only_lines.extend(['Kb', 'Lb1', 'Mb'])
+            return only_lines
+
     def set_lines(self,
                   lines,
                   only_one=True,
-                  only_lines=("Ka", "La", "Ma")):
+                  only_lines=('a')):
         """Erase all Xrays lines and set them.
 
         See add_lines for details.
@@ -316,6 +328,7 @@ class EDSSpectrum(Spectrum):
         add_lines, add_elements, set_elements
 
         """
+        only_lines = self._parse_only_lines(only_lines)
         if "Sample.xray_lines" in self.metadata:
             del self.metadata.Sample.xray_lines
         self.add_lines(lines=lines,
@@ -325,7 +338,7 @@ class EDSSpectrum(Spectrum):
     def add_lines(self,
                   lines=(),
                   only_one=True,
-                  only_lines=("Ka", "La", "Ma")):
+                  only_lines=("a")):
         """Add X-rays lines to the internal list.
 
         Although most functions do not require an internal list of
@@ -358,6 +371,7 @@ class EDSSpectrum(Spectrum):
         set_lines, add_elements, set_elements
 
         """
+        only_lines = self._parse_only_lines(only_lines)
         if "Sample.xray_lines" in self.metadata:
             xray_lines = set(self.metadata.Sample.xray_lines)
         else:
@@ -414,7 +428,7 @@ class EDSSpectrum(Spectrum):
     def _get_lines_from_elements(self,
                                  elements,
                                  only_one=False,
-                                 only_lines=("Ka", "La", "Ma")):
+                                 only_lines=("a")):
         """Returns the X-ray lines of the given elements in spectral range
         of the data.
 
@@ -436,6 +450,7 @@ class EDSSpectrum(Spectrum):
 
         """
 
+        only_lines = self._parse_only_lines(only_lines)
         beam_energy = self._get_beam_energy()
         lines = []
         for element in elements:
@@ -472,7 +487,7 @@ class EDSSpectrum(Spectrum):
                             background_windows=None,
                             plot_result=False,
                             only_one=True,
-                            only_lines=("Ka", "La", "Ma"),
+                            only_lines=("a"),
                             **kwargs):
         """Return the intensity map of selected Xray lines.
 
@@ -546,6 +561,7 @@ class EDSSpectrum(Spectrum):
 
         """
 
+        only_lines = self._parse_only_lines(only_lines)
         if xray_lines is None:
             if 'Sample.xray_lines' in self.metadata:
                 xray_lines = self.metadata.Sample.xray_lines
@@ -836,13 +852,7 @@ class EDSSpectrum(Spectrum):
         if xray_lines_markers or\
                 background_windows is not None or\
                 integration_windows is not None:
-            if only_lines is not None:
-                only_lines = list(only_lines)
-                for only_line in only_lines:
-                    if only_line == 'a':
-                        only_lines.extend(['Ka', 'La', 'Ma'])
-                    elif only_line == 'b':
-                        only_lines.extend(['Kb', 'Lb1', 'Mb'])
+            only_lines = self._parse_only_lines(only_lines)
             if xray_lines is None or xray_lines == 'from_elements':
                 if 'Sample.xray_lines' in self.metadata \
                         and xray_lines != 'from_elements':
