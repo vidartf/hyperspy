@@ -244,7 +244,7 @@ def emi_reader(filename, dump_xml=False, verbose=False, **kwds):
         if verbose is True:
             print "Opening ", f
         try:
-            sers.append(ser_reader(f, objects))
+            sers.append(ser_reader(f, objects, verbose=verbose))
         except IOError:  # Probably a single spectrum that we don't support
             continue
 
@@ -263,7 +263,7 @@ def file_reader(filename, *args, **kwds):
         return emi_reader(filename, *args, **kwds)
 
 
-def load_ser_file(filename, verbose=False):
+def load_ser_file(filename, verbose=False, strip_unvalid=True):
     if verbose:
         print "Opening the file: ", filename
     with open(filename, 'rb') as f:
@@ -281,7 +281,8 @@ def load_ser_file(filename, verbose=False):
             raise IOError(
                 "The file does not contains valid data. "
                 "If it is a single spectrum, the data is contained in the  "
-                ".emi file but HyperSpy cannot currently extract this information.")
+                ".emi file but HyperSpy cannot currently extract this "
+                "information.")
 
         # Read the first element of data offsets
         f.seek(header["OffsetArrayOffset"][0])
@@ -292,9 +293,13 @@ def load_ser_file(filename, verbose=False):
             guess_record_by(header['DataTypeID']))
         tag_dtype_list = get_data_tag_dtype_list(header['TagTypeID'])
         f.seek(data_offsets)
+        if strip_unvalid:
+            count = header['ValidNumberElements']
+        else:
+            count = header["TotalNumberElements"]
         data = np.fromfile(f,
                            dtype=np.dtype(data_dtype_list + tag_dtype_list),
-                           count=header["TotalNumberElements"])
+                           count=count)
         if verbose is True:
             print "\n"
             print "Data info:"
@@ -316,13 +321,15 @@ def get_xml_info_from_emi(emi_file):
     return objects[:-1]
 
 
-def ser_reader(filename, objects=None, verbose=False, *args, **kwds):
+def ser_reader(filename, objects=None, verbose=False, strip_unvalid=True,
+               *args, **kwds):
     """Reads the information from the file and returns it in the HyperSpy
     required format.
 
     """
 
-    header, data = load_ser_file(filename, verbose=verbose)
+    header, data = load_ser_file(filename, verbose=verbose,
+                                 strip_unvalid=strip_unvalid)
     record_by = guess_record_by(header['DataTypeID'])
     axes = []
     ndim = int(header['NumberDimensions'])
@@ -354,6 +361,23 @@ def ser_reader(filename, objects=None, verbose=False, *args, **kwds):
             })
             array_shape[i] = \
                 header['Dim-%i_DimensionSize' % idim][0]
+        # Remove unvalid elements:
+        if strip_unvalid:
+            tot = header['TotalNumberElements'][0]
+            valid = header['ValidNumberElements'][0]
+            if tot != valid:
+                # TODO: Currently don't know order of dimensions w.r.t Elements
+                counter = 1
+                for i in xrange(ndim):
+                    if valid <= counter * array_shape[i]:
+                        # Found end
+                        if counter > 1:
+                            array_shape[i] = max(valid - counter, 0)
+                        else:
+                            array_shape[i] = max(valid, 0)
+                        axes[i]['size'] = array_shape[i]
+                    counter *= array_shape[i]
+
         # FEI seems to use the international system of units (SI) for the
         # spatial scale. However, we prefer to work in nm
         for axis in axes:
@@ -388,6 +412,23 @@ def ser_reader(filename, objects=None, verbose=False, *args, **kwds):
                     'size': header['Dim-%i_DimensionSize' % (i + 1)][0],
                 })
             array_shape.append(header['Dim-%i_DimensionSize' % (i + 1)][0])
+        # Remove unvalid elements:
+        if strip_unvalid:
+            tot = header['TotalNumberElements'][0]
+            valid = header['ValidNumberElements'][0]
+            if tot != valid:
+                # TODO: Currently don't know order of dimensions w.r.t Elements
+                counter = 1
+                for i in xrange(ndim):
+                    if valid <= counter * array_shape[i]:
+                        # Found end
+                        if counter > 1:
+                            array_shape[i] = max(valid - counter, 0)
+                        else:
+                            array_shape[i] = max(valid, 0)
+                        axes[i]['size'] = array_shape[i]
+                    counter *= array_shape[i]
+
         # Y axis
         axes.append({
             'name': 'y',
@@ -410,8 +451,8 @@ def ser_reader(filename, objects=None, verbose=False, *args, **kwds):
         array_shape.append(data['ArraySizeX'][0])
 
     # If the acquisition stops before finishing the job, the stored file will
-    # report the requested size even though no values are recorded. Therefore if
-    # the shapes of the retrieved array does not match that of the data
+    # report the requested size even though no values are recorded. Therefore
+    # if the shapes of the retrieved array does not match that of the data
     # dimensions we must fill the rest with zeros or (better) nans if the
     # dtype is float
     if np.cumprod(array_shape)[-1] != np.cumprod(data['Array'].shape)[-1]:
