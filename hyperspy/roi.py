@@ -137,7 +137,7 @@ class BaseROI(t.HasTraits):
         -------
         (tuple(<DataAxis>), matplotlib Axes)
         """
-        nd = len(axes)
+        nd = len(self.coords)
         if isinstance(axes, basestring) and (axes.startswith("nav") or
                                              axes.startswith("sig")):
             # Specifies space
