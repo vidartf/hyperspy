@@ -470,7 +470,7 @@ class Point1DROI(BasePointROI):
             self.value)
 
 
-class Point2DROI(BaseInteractiveROI):
+class Point2DROI(BasePointROI):
 
     """Selects a single point in a 2D space. The coordinates of the point in
     the 2D space are stored in the traits 'x' and 'y'.
@@ -478,6 +478,7 @@ class Point2DROI(BaseInteractiveROI):
     x, y = (t.CFloat(t.Undefined),) * 2
 
     def __init__(self, x, y):
+        super(Point2DROI, self).__init__()
         self.x, self.y = x, y
 
     def _get_coords(self):
@@ -500,9 +501,9 @@ class Point2DROI(BaseInteractiveROI):
         return widgets.DraggableSquare
 
     def __repr__(self):
-        return "%s(value=%f)" % (
+        return "%s(x=%f, y=%f)" % (
             self.__class__.__name__,
-            self.value)
+            self.x, self.y)
 
 
 class SpanROI(BaseInteractiveROI):
