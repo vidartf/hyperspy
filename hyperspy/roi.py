@@ -340,7 +340,8 @@ class BaseInteractiveROI(BaseROI):
         sp = signal._plot.signal_plot
         sp.update()
         w = self.add_widget(signal, axes=nav_axes, color='red')
-        w.events.resized.connect(sp.update, 0)
+        if hasattr(w.events, 'resized'):
+            w.events.resized.connect(sp.update, 0)
         w.connect_navigate()
         if signal._plot.pointer is not None:
             signal._plot.pointer.close()
