@@ -466,7 +466,7 @@ def ser_reader(filename, objects=None, verbose=False, strip_unvalid=True,
 
     dc = dc.reshape(array_shape)
     if record_by == 'image':
-        dc = dc[::-1]
+        dc = dc[..., ::-1, :]
     if ordict:
         original_metadata = OrderedDict()
     else:
