@@ -231,7 +231,7 @@ class ImagePlot(BlittedFigure):
             am = stack_iterable
         else:
             # Only plot current frame
-            stack_iterable = [self.axes_manager.indices]
+            stack_iterable = [0]
             am = self.axes_manager
 
         if self._text is not None:
@@ -387,7 +387,8 @@ class ImagePlot(BlittedFigure):
             new_args.update(kwargs)
             img = self.ax.imshow(data,
                                  **new_args)
-            self.figure.canvas.draw()
+            if not self.cache_stack:
+                self.figure.canvas.draw()
         return img
 
     def on_navigate(self):
