@@ -73,8 +73,6 @@ class DataAxis(t.HasTraits):
     axis = t.Array()
     continuous_value = t.Bool(False)
 
-    _origin_id_counter = 0
-
     def __init__(self,
                  size,
                  index_in_array=None,
@@ -82,8 +80,7 @@ class DataAxis(t.HasTraits):
                  scale=1.,
                  offset=0.,
                  units=t.Undefined,
-                 navigate=t.Undefined,
-                 _origin_id=None):
+                 navigate=t.Undefined):
         super(DataAxis, self).__init__()
         self.name = name
         self.units = units
@@ -105,11 +102,6 @@ class DataAxis(t.HasTraits):
         # The slice must be updated even if the default value did not
         # change to correctly set its value.
         self._update_slice(self.navigate)
-        if _origin_id is None:
-            self._origin_id = DataAxis._origin_id_counter
-            DataAxis._origin_id_counter += 1
-        else:
-            self._origin_id = _origin_id
 
     @property
     def index_in_array(self):
@@ -270,8 +262,7 @@ class DataAxis(t.HasTraits):
             'offset': self.offset,
             'size': self.size,
             'units': self.units,
-            'navigate': self.navigate,
-            '_origin_id': self._origin_id
+            'navigate': self.navigate
         }
         return adict
 
