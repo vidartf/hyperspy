@@ -1745,7 +1745,8 @@ class Model(list):
             del pw
 
     def fit_component(self, component, signal_range="interactive",
-                      estimate_parameters=True, fit_independent=False, **kwargs):
+                      estimate_parameters=True, fit_independent=False, 
+                      kind=None, **kwargs):
         """Fit just the given component in the given signal range.
 
         This method is useful to obtain starting parameters for the
@@ -1785,7 +1786,7 @@ class Model(list):
         cf = ComponentFit(self, component, signal_range,
                           estimate_parameters, fit_independent, **kwargs)
         if signal_range == "interactive":
-            cf.edit_traits()
+            cf.edit_traits(kind=kind)
         else:
             cf.apply()
 

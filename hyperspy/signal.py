@@ -790,7 +790,8 @@ class Signal1DTools(object):
     def smooth_savitzky_golay(self,
                               polynomial_order=None,
                               window_length=None,
-                              differential_order=0):
+                              differential_order=0,
+                              kind=None):
         """Apply a Savitzky-Golay filter to the data in place.
 
         If `polynomial_order` or `window_length` or `differential_order` are
@@ -837,7 +838,7 @@ class Signal1DTools(object):
                 smoother.polynomial_order = polynomial_order
             if window_length is not None:
                 smoother.window_length = window_length
-            smoother.edit_traits()
+            smoother.edit_traits(kind=kind)
 
     def smooth_lowess(self,
                       smoothing_parameter=None,
