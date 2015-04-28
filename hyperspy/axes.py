@@ -25,6 +25,7 @@ from traits.trait_errors import TraitError
 
 from hyperspy.misc.utils import isiterable, ordinal
 from hyperspy.misc.math_tools import isfloat
+from hyperspy.events import Events, Event
 
 
 class ndindex_nat(np.ndindex):
@@ -102,6 +103,9 @@ class DataAxis(t.HasTraits):
         # The slice must be updated even if the default value did not
         # change to correctly set its value.
         self._update_slice(self.navigate)
+        self.events = Events()
+        self.events.navigate = Event()
+        self._event_proxies = {}
 
     @property
     def index_in_array(self):
@@ -235,6 +239,8 @@ class DataAxis(t.HasTraits):
         return self._get_name() + " axis"
 
     def connect(self, f, trait='value'):
+        if trait in self._event_proxies:
+            self._event_proxies[trait].connect(f, 'traits')
         self.on_trait_change(f, trait)
 
     def disconnect(self, f, trait='value'):

@@ -75,7 +75,6 @@ from hyperspy.drawing.utils import animate_legend
 from hyperspy.events import Events, Event
 
 
-
 class Signal2DTools(object):
 
     def estimate_shift2D(self,
@@ -2529,6 +2528,8 @@ class Signal(MVA,
         self.isig = SpecialSlicers(self, False)
         self.events = Events()
         self.events.data_changed = Event()
+        self.events.axes_changed = Event()
+        self.events.navigate = Event()
 
     def _create_metadata(self):
         self.metadata = DictionaryTreeBrowser()

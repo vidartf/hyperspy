@@ -4,7 +4,9 @@ import inspect
 
 class EventsSuppressionContext(object):
 
-    """Context manager for event suppression. When passed an Events class,
+    """
+    Context manager for event suppression. When passed an Events class,
+	Context manager for event suppression. When passed an Events class,
     it will suppress all the events in that container when activated by
     using it in a 'with' statement. The previous suppression state will be
     restored when the 'with' block completes.
@@ -62,8 +64,9 @@ class Events(object):
 
     @property
     def suppress(self):
-        """Use this property with a 'with' statement to temporarily suppress
-        all events in the container. When the 'with' vlock completes, the old
+        """
+        Use this property with a 'with' statement to temporarily suppress all
+        events in the container. When the 'with' vlock completes, the old
         suppression values will be restored.
 
         Example usage pattern:
@@ -98,7 +101,8 @@ class Event(object):
         return CallbackSuppressionContext(function, self, nargs)
 
     def connected(self, nargs=None):
-        """Connected functions. The default behavior is to include all
+        """
+		Connected functions. The default behavior is to include all
         functions, but by using the 'nargs' argument, it can be filtered by
         function signature.
         """
@@ -110,7 +114,8 @@ class Event(object):
             return self._connected[nargs]
 
     def connect(self, function, nargs='all'):
-        """Connects a function to the event.
+        """
+		Connects a function to the event.
 
         Arguments:
         ----------
@@ -138,7 +143,8 @@ class Event(object):
         self._connected[nargs].add(function)
 
     def disconnect(self, function):
-        """Disconnects a function from the event. The passed function will be
+        """
+		Disconnects a function from the event. The passed function will be
         disconnected irregardless of which 'nargs' argument was passed to
         connect().
         """
@@ -157,6 +163,23 @@ class Event(object):
                 if nargs is 'all':
                     for f in c:
                         f(*args)
+                elif nargs is 'traits':
+                    for f in c.copy():
+                        spec = inspect.getargspec(f)[0]
+                        if spec is None:
+                            f_nargs = 0
+                        else:
+                            f_nargs = len(spec)
+                        if f_nargs == 0:
+                            f()
+                        elif f_nargs == 1:
+                            f(args[3])
+                        elif f_nargs == 2:
+                            f(args[1], args[3])
+                        elif f_nargs == 3:
+                            f(args[0], args[1], args[3])
+                        elif f_nargs == 4:
+                            f(*args[0:4])
                 else:
                     if len(args) < nargs:
                         raise ValueError(
