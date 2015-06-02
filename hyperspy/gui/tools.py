@@ -274,6 +274,7 @@ class SpectrumCalibration(SpanSelectorInSpectrum):
             'units',),
         handler=CalibrationHandler,
         buttons=[OKButton, OurApplyButton, CancelButton],
+        default_button=OKButton,
         kind='live',
         title='Calibration parameters')
 
@@ -321,7 +322,8 @@ class SpectrumRangeSelector(SpanSelectorInSpectrum):
         tu.Item('ss_left_value', label='Left', style='readonly'),
         tu.Item('ss_right_value', label='Right', style='readonly'),
         handler=SpectrumRangeSelectorHandler,
-        buttons=[OKButton, OurApplyButton, CancelButton],)
+        buttons=[OKButton, OurApplyButton, CancelButton],
+        default_button=OKButton)
 
 
 class Smoothing(t.HasTraits):
@@ -629,6 +631,7 @@ class Load(t.HasTraits):
         tu.Group('filename'),
         kind='livemodal',
         buttons=[OKButton, CancelButton],
+        default_button=OKButton,
         title='Load file')
 
 
@@ -685,6 +688,7 @@ class ImageContrastEditor(t.HasTraits):
                             OurApplyButton,
                             OurResetButton,
                             CancelButton, ],
+                   default_button=OKButton,
                    title='Constrast adjustment tool',
                    )
 
@@ -764,6 +768,7 @@ class ComponentFit(SpanSelectorInSpectrum):
         tu.Item('only_current', show_label=False, style='custom',
                 editor=tu.CheckListEditor(values=[(True, 'Only current')])),
         buttons=[OKButton, CancelButton],
+        default_button=OKButton,
         title='Fit single component',
         handler=SpanSelectorInSpectrumHandler,
     )
@@ -865,6 +870,7 @@ class IntegrateArea(SpanSelectorInSpectrum):
 
     view = tu.View(
         buttons=[OKButton, CancelButton],
+        default_button=OKButton,
         title='Integrate in range',
         handler=SpanSelectorInSpectrumHandler,
     )
