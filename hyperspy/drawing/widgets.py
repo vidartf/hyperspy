@@ -72,6 +72,9 @@ class InteractivePatchBase(object):
     """
 
     def __init__(self, axes_manager=None):
+        """
+        Add a patch to ax.
+        """
         self.axes_manager = axes_manager
         self.axes = list()
         self.ax = None
