@@ -446,7 +446,7 @@ class BaseInteractiveROI(BaseROI):
             self._remove_widget(w)
 
 
-        nd = len(axes)
+class BasePointROI(BaseInteractiveROI):
 
     """Base ROI class for point ROIs, i.e. ROIs with a unit size in each of its
     dimensions.
