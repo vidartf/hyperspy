@@ -1003,8 +1003,8 @@ class EDSSpectrum(Spectrum):
                 x=line_energy[i], y=intensity[i] * 1.1, text=xray_lines[i],
                 rotation=90)
             self.add_marker(text)
-            line.events.close.connect(partial(self._remove_xray_lines_markers,
-                                              xray_lines[i]))
+            line.events.closed.connect(partial(self._remove_xray_lines_markers,
+                                               xray_lines[i]))
             self._xray_markers[xray_lines[i]] = (line, text)
 
     def _remove_xray_lines_markers(self, xray_lines):
