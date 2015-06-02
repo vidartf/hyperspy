@@ -281,7 +281,8 @@ class BaseInteractiveROI(BaseROI):
             with w.events.changed.suppress_single(self._on_widget_change):
                 self._apply_roi2widget(w)
 
-    def interactive(self, signal, navigation_signal="same", out=None):
+    def interactive(self, signal, navigation_signal="same", out=None,
+                    **kwargs):
         """Creates an interactivley sliced Signal (sliced by this ROI) via
         hyperspy.interactive.
 
@@ -306,11 +307,12 @@ class BaseInteractiveROI(BaseROI):
         if out is None:
             return hsi.interactive(self.__call__,
                                    event=self.events.roi_changed,
-                                   signal=signal)
+                                   signal=signal,
+                                   **kwargs)
         else:
             return hsi.interactive(self.__call__,
                                    event=self.events.roi_changed,
-                                   signal=signal, out=out)
+                                   signal=signal, out=out, **kwargs)
 
     def navigate(self, signal):
         """Make a widget for this ROI and use it as a navigator for passed 
