@@ -21,6 +21,7 @@ import itertools
 import numpy as np
 import warnings
 from matplotlib import pyplot as plt
+from functools import partial
 
 from hyperspy import utils
 from hyperspy._signals.spectrum import Spectrum
@@ -918,6 +919,7 @@ class EDSSpectrum(Spectrum):
         get_lines_intensity, estimate_background_windows
         """
         super(EDSSpectrum, self).plot(**kwargs)
+        self._xray_markers.clear()
         self._plot_xray_lines(xray_lines, only_lines, only_one,
                               background_windows, integration_windows)
 
@@ -1007,6 +1009,8 @@ class EDSSpectrum(Spectrum):
                 x=line_energy[i], y=intensity[i] * 1.1, text=xray_lines[i],
                 rotation=90)
             self.add_marker(text)
+            line.events.close.connect(partial(self._remove_xray_lines_markers,
+                                              xray_lines[i]))
             self._xray_markers[xray_lines[i]] = (line, text)
 
     def _remove_xray_lines_markers(self, xray_lines):
@@ -1021,7 +1025,8 @@ class EDSSpectrum(Spectrum):
         """
         for xray_line in xray_lines:
             if xray_line in self._xray_markers:
-                for m in self._xray_markers[xray_line]:
+                ms = self._xray_markers.pop(xray_line)
+                for m in ms:
                     m.close()
 
     def _add_background_windows_markers(self,
