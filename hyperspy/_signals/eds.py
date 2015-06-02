@@ -21,6 +21,7 @@ import itertools
 import numpy as np
 import warnings
 from matplotlib import pyplot as plt
+from functools import partial
 
 from hyperspy import utils
 from hyperspy._signals.spectrum import Spectrum
@@ -28,6 +29,7 @@ from hyperspy.misc.elements import elements as elements_db
 from hyperspy.misc.eds import utils as utils_eds
 from hyperspy.misc.utils import isiterable
 from hyperspy.utils import markers
+from hyperspy.roi import SpanROI
 
 
 class EDSSpectrum(Spectrum):
@@ -309,6 +311,21 @@ class EDSSpectrum(Spectrum):
             elif only_line == 'b':
                 only_lines.extend(['Kb', 'Lb1', 'Mb'])
         return only_lines
+
+    def _get_xray_lines(self, xray_lines=None, only_one=None,
+                        only_lines=['a']):
+        if xray_lines is None:
+            if 'Sample.xray_lines' in self.metadata:
+                xray_lines = self.metadata.Sample.xray_lines
+            elif 'Sample.elements' in self.metadata:
+                xray_lines = self._get_lines_from_elements(
+                    self.metadata.Sample.elements,
+                    only_one=only_one,
+                    only_lines=only_lines)
+            else:
+                raise ValueError(
+                    "Not X-ray line, set them with `add_elements`")
+        return xray_lines
 
     def set_lines(self,
                   lines,
@@ -610,17 +627,7 @@ class EDSSpectrum(Spectrum):
         """
 
         only_lines = self._parse_only_lines(only_lines)
-        if xray_lines is None:
-            if 'Sample.xray_lines' in self.metadata:
-                xray_lines = self.metadata.Sample.xray_lines
-            elif 'Sample.elements' in self.metadata:
-                xray_lines = self._get_lines_from_elements(
-                    self.metadata.Sample.elements,
-                    only_one=only_one,
-                    only_lines=only_lines)
-            else:
-                raise ValueError(
-                    "Not X-ray line, set them with `add_elements`")
+        xray_lines = self._get_xray_lines(xray_lines)
         xray_lines, xray_not_here = self._get_xray_lines_in_spectral_range(
             xray_lines)
         for xray in xray_not_here:
@@ -763,8 +770,7 @@ class EDSSpectrum(Spectrum):
         --------
         plot, get_lines_intensity
         """
-        if xray_lines is None:
-            xray_lines = self.metadata.Sample.xray_lines
+        xray_lines = self._get_xray_lines(xray_lines)
         integration_windows = []
         for Xray_line in xray_lines:
             line_energy, line_FWHM = self._get_line_energy(Xray_line,
@@ -818,8 +824,7 @@ class EDSSpectrum(Spectrum):
         --------
         plot, get_lines_intensity
         """
-        if xray_lines is None:
-            xray_lines = self.metadata.Sample.xray_lines
+        xray_lines = self._get_xray_lines(xray_lines)
         windows_position = []
         for xray_line in xray_lines:
             line_energy, line_FWHM = self._get_line_energy(xray_line,
@@ -918,6 +923,7 @@ class EDSSpectrum(Spectrum):
         get_lines_intensity, estimate_background_windows
         """
         super(EDSSpectrum, self).plot(**kwargs)
+        self._xray_markers.clear()
         self._plot_xray_lines(xray_lines, only_lines, only_one,
                               background_windows, integration_windows)
 
@@ -1007,6 +1013,8 @@ class EDSSpectrum(Spectrum):
                 x=line_energy[i], y=intensity[i] * 1.1, text=xray_lines[i],
                 rotation=90)
             self.add_marker(text)
+            line.events.close.connect(partial(self._remove_xray_lines_markers,
+                                              xray_lines[i]))
             self._xray_markers[xray_lines[i]] = (line, text)
 
     def _remove_xray_lines_markers(self, xray_lines):
@@ -1021,7 +1029,8 @@ class EDSSpectrum(Spectrum):
         """
         for xray_line in xray_lines:
             if xray_line in self._xray_markers:
-                for m in self._xray_markers[xray_line]:
+                ms = self._xray_markers.pop(xray_line)
+                for m in ms:
                     m.close()
 
     def _add_background_windows_markers(self,
@@ -1060,3 +1069,81 @@ class EDSSpectrum(Spectrum):
                 x1=(bw[0] + bw[1]) / 2., x2=(bw[2] + bw[3]) / 2.,
                 y1=y1, y2=y2, color='black')
             self.add_marker(line)
+
+    def _add_background_windows_rois(self,
+                                     windows_position):
+        """
+        Plot the background windows associated with each X-ray lines.
+
+        For X-ray lines, a black line links the left and right window with the
+        average value in each window.
+
+        Parameters
+        ----------
+        windows_position: 2D array of float
+            The position of the windows in energy. Each line corresponds to an
+            X-ray lines. In a line, the two first value corresponds to the
+            limit of the left window and the two last values corresponds to the
+            limit of the right window..
+
+        See also
+        --------
+        estimate_background_windows, get_lines_intensity
+        """
+        rois = []
+        mas = []
+        ax = self.axes_manager.signal_axes[0]
+        for i, pos in enumerate(windows_position):
+            rois.append([])
+            mas.append([])
+            color = plt.rcParams['axes.color_cycle'][i]
+            left1 = pos[0]
+            right1 = pos[1]
+            left2 = pos[2]
+            right2 = pos[3]
+            r1 = SpanROI(left1, right1)
+            r1.add_widget(self, axes=self.axes_manager.signal_axes,
+                          color=color)
+            r2 = SpanROI(left2, right2)
+            r2.add_widget(self, axes=self.axes_manager.signal_axes,
+                          color=color)
+            rois[-1].extend([r1, r2])
+            # TODO: test to prevent slicing bug. To be reomved when fixed
+            if ax.value2index(left1) == ax.value2index(right1):
+                y1 = self.isig[left1].data
+            else:
+                y1 = self.isig[left1:right1].mean(-1).data
+            if ax.value2index(left2) == ax.value2index(right2):
+                y2 = self.isig[left2].data
+            else:
+                y2 = self.isig[left2:right2].mean(-1).data
+            line = markers.line_segment(
+                x1=(left1 + right1) / 2., x2=(left2 + right2) / 2.,
+                y1=y1, y2=y2, color='black')
+            self.add_marker(line)
+            mas[-1].append(line)
+
+            # Code to update marker when rois change
+            def roi_changed(r1, r2, line, r):
+                left = r.left
+                right = r.right
+                if r == r1:
+                    # TODO: test to prevent slicing bug.
+                    if ax.value2index(left) == ax.value2index(right):
+                        y1 = self.isig[left].data
+                    else:
+                        y1 = self.isig[left:right].mean(-1).data
+                    line.data['y1'].item()[()] = y1
+                    line.data['x1'].item()[()] = (left + right) / 2
+                if r == r2:
+                    if ax.value2index(left) == ax.value2index(right):
+                        y2 = self.isig[left].data
+                    else:
+                        y2 = self.isig[left:right].mean(-1).data
+                    line.data['y2'].item()[()] = y2
+                    line.data['x2'].item()[()] = (left + right) / 2
+                line.update()
+
+            r1.events.roi_changed.connect(partial(roi_changed, r1, r2, line))
+            r2.events.roi_changed.connect(partial(roi_changed, r1, r2, line))
+        return rois, mas
