@@ -1144,3 +1144,18 @@ def plot_histograms(signal_list,
         line_style = 'steps'
     return plot_spectra(hists, style='overlap', color=color,
                         line_style=line_style, legend=legend, fig=fig)
+
+
+    
+def align_yaxis_zero(ax1, ax2):
+    """adjust ax2 ylimit so that 0 in ax2 is aligned to 0 in ax1"""
+    _, y1 = ax1.transData.transform((0, 0))
+    _, y2 = ax2.transData.transform((0, 0))
+    if y2 > y1:
+        ratio = y1/y2
+    else:
+        ratio = y2/y1
+    inv = ax2.transData.inverted()
+    _, dy = inv.transform((0, 0)) - inv.transform((0, y1-y2))
+    miny2, maxy2 = ax2.get_ylim()
+    ax2.set_ylim((miny2+dy)/ratio, (maxy2+dy)/ratio)

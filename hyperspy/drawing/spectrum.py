@@ -35,9 +35,9 @@ class SpectrumFigure(BlittedFigure):
         self.figure = None
         self.ax = None
         self.right_ax = None
+        self.right_zero_lock = False
         self.ax_lines = list()
         self.right_ax_lines = list()
-        self.lines = list()
         self.ax_markers = list()
         self.axes_manager = None
         self.right_axes_manager = None
@@ -76,6 +76,7 @@ class SpectrumFigure(BlittedFigure):
             self.right_ax.yaxis.set_animated(True)
 
     def add_line(self, line, ax='left'):
+        line.autolim = self.autolim
         if ax == 'left':
             line.ax = self.ax
             if line.axes_manager is None:
@@ -137,12 +138,35 @@ class SpectrumFigure(BlittedFigure):
         except:
             pass
         self.figure = None
+        
+    def autolim(self):
+        lims = [np.inf, -np.inf]
+        for line in self.ax_lines:
+            if line.autoscale:
+                ymin, ymax = line.get_autolim()
+                lims[0] = min(ymin, lims[0])
+                lims[1] = max(ymax, lims[1])
+        lims[0] = None if lims[0] == np.inf else lims[0]
+        lims[1] = None if lims[1] == -np.inf else lims[1]
+        self.ax.set_ylim(lims[0], lims[1])
+        lims = [np.inf, -np.inf]
+        for line in self.right_ax_lines:
+            if line.autoscale:
+                ymin, ymax = line.get_autolim()
+                lims[0] = min(ymin, lims[0])
+                lims[1] = max(ymax, lims[1])
+        lims[0] = None if lims[0] == np.inf else lims[0]
+        lims[1] = None if lims[1] == -np.inf else lims[1]
+        if self.right_ax is not None:
+            self.right_ax.set_ylim(lims[0], lims[1])
+            if self.right_zero_lock:
+                utils.align_yaxis_zero(self.ax, self.right_ax)
+        
 
     def update(self):
         for marker in self.ax_markers:
             marker.update()
-        for line in self.ax_lines + \
-                self.right_ax_lines:
+        for line in self.ax_lines + self.right_ax_lines:
             line.update()
         # To be discussed
         # self.ax.hspy_fig._draw_animated()
@@ -315,15 +339,18 @@ class SpectrumLine(object):
         self.line.set_ydata(ydata)
 
         if self.autoscale is True:
-            self.ax.relim()
-            y1, y2 = np.searchsorted(self.axis,
-                                     self.ax.get_xbound())
-            y2 += 2
-            y1, y2 = np.clip((y1, y2), 0, len(ydata - 1))
-            clipped_ydata = ydata[y1:y2]
-            y_max, y_min = (np.nanmax(clipped_ydata),
-                            np.nanmin(clipped_ydata))
-            self.ax.set_ylim(y_min, y_max)
+            if hasattr(self, 'autolim'):
+                self.autolim()
+            else:
+                self.ax.relim()
+                y1, y2 = np.searchsorted(self.axis,
+                                         self.ax.get_xbound())
+                y2 += 2
+                y1, y2 = np.clip((y1, y2), 0, len(ydata - 1))
+                clipped_ydata = ydata[y1:y2]
+                y_max, y_min = (np.nanmax(clipped_ydata),
+                                np.nanmin(clipped_ydata))
+                self.ax.set_ylim(y_min, y_max)
         if self.plot_indices is True:
             self.text.set_text((self.axes_manager.indices))
         try:
@@ -332,6 +359,17 @@ class SpectrumLine(object):
             pass
         # self.ax.hspy_fig._draw_animated()
         # self.ax.figure.canvas.draw_idle()
+        
+    def get_autolim(self):
+        ydata = self.line.get_ydata()
+        y1, y2 = np.searchsorted(self.axis,
+                                 self.ax.get_xbound())
+        y2 += 2
+        y1, y2 = np.clip((y1, y2), 0, len(ydata - 1))
+        clipped_ydata = ydata[y1:y2]
+        y_max, y_min = (np.nanmax(clipped_ydata),
+                        np.nanmin(clipped_ydata))
+        return y_min, y_max
 
     def close(self):
         if self.line in self.ax.lines:

@@ -1722,6 +1722,8 @@ class Model(list):
             w.set_mpl_ax(self._plot.signal_plot.ax)
             self._position_widgets[-2].set_mpl_ax(
                 self._plot.signal_plot.ax)
+            w.connect_navigate()
+            self._position_widgets[-2].connect_navigate()
         else:
             self._position_widgets.extend((
                 DraggableVerticalLine(am),))
@@ -1730,6 +1732,7 @@ class Model(list):
             self._position_widgets[-1].component = component
             self._position_widgets[-1].set_mpl_ax(
                 self._plot.signal_plot.ax)
+            self._position_widgets[-1].connect_navigate()
         # Create widget -> parameter connection
         am._axes[0].continuous_value = True
         am._axes[0].on_trait_change(set_value, 'value')
