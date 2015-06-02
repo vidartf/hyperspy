@@ -2,10 +2,9 @@ import sys
 import inspect
 
 
-class EventSuppressionContext(object):
+class EventsSuppressionContext(object):
 
-    """
-    Context manager for event suppression. When passed an Events class,
+    """Context manager for event suppression. When passed an Events class,
     it will suppress all the events in that container when activated by
     using it in a 'with' statement. The previous suppression state will be
     restored when the 'with' block completes.
@@ -32,6 +31,26 @@ class EventSuppressionContext(object):
         # Never suppress events
 
 
+class CallbackSuppressionContext(object):
+
+    """Context manager for suppression of a single callback on an Event. Useful
+    e.g. to prevent infinite recursion if two objects are connected in a loop.
+    """
+
+    def __init__(self, callback, event, nargs):
+        self.event = event
+        self.callback = callback
+        self.nargs = nargs
+
+    def __enter__(self):
+        if self.callback is not None:
+            self.event.disconnect(self.callback)
+
+    def __exit__(self, type, value, tb):
+        if self.callback is not None:
+            self.event.connect(self.callback, self.nargs)
+
+
 class Events(object):
 
     """
@@ -43,9 +62,8 @@ class Events(object):
 
     @property
     def suppress(self):
-        """
-        Use this property with a 'with' statement to temporarily suppress all
-        events in the container. When the 'with' vlock completes, the old
+        """Use this property with a 'with' statement to temporarily suppress
+        all events in the container. When the 'with' vlock completes, the old
         suppression values will be restored.
 
         Example usage pattern:
@@ -54,27 +72,57 @@ class Events(object):
             obj.val_b = b
         obj.events.values_changed.trigger()
         """
-        return EventSuppressionContext(self)
+        return EventsSuppressionContext(self)
 
 
 class Event(object):
 
     def __init__(self):
-        self._connected = {}
+        self._connected = {0: set()}
         self.suppress = False
 
+    def suppress_single(self, function):
+        """Use the return value of this function with a 'with' statement to
+        temporarily disable a single callback from triggering. All other
+        connected callbacks will trigger.
+        """
+        nargs = None
+        found = False
+        for nargs, c in self._connected.iteritems():
+            for f in c:
+                if f == function:
+                    found = True
+                    break
+        if not found:
+            function = None
+        return CallbackSuppressionContext(function, self, nargs)
+
     def connected(self, nargs=None):
+        """Connected functions. The default behavior is to include all
+        functions, but by using the 'nargs' argument, it can be filtered by
+        function signature.
+        """
         if nargs is None:
             ret = set()
             ret.update(*self._connected.values())
             return ret
         else:
-            if nargs in self._connected:
-                return self._connected[nargs]
-            else:
-                return set()
+            return self._connected[nargs]
 
     def connect(self, function, nargs='all'):
+        """Connects a function to the event.
+
+        Arguments:
+        ----------
+        function : callable
+            The function to call when the event triggers.
+        nargs : int, 'all' (default), or 'auto'
+            The number of arguments to supply to the function. If 'all', it
+            will be called with all arguments passed to trigger(). If 'auto'
+            inspect.getargspec() will be used to determine the number of
+            arguments the function accepts (arguments with default values will
+            be included in the count).
+        """
         if not callable(function):
             raise TypeError("Only callables can be registered")
         if nargs == 'auto':
@@ -90,17 +138,25 @@ class Event(object):
         self._connected[nargs].add(function)
 
     def disconnect(self, function):
+        """Disconnects a function from the event. The passed function will be
+        disconnected irregardless of which 'nargs' argument was passed to
+        connect().
+        """
         for c in self._connected.itervalues():
             if function in c:
                 c.remove(function)
 
-    def trigger(self, *args, **kwargs):
+    def trigger(self, *args):
+        """Triggers the event. If the attribute 'suppress' is True, this does
+        nothing. Otherwise it calls all the connected functions with the
+        arguments as specified when connected.
+        """
         if not self.suppress:
             # Loop on copy to deal with callbacks which change connections
             for nargs, c in self._connected.copy().iteritems():
                 if nargs is 'all':
                     for f in c:
-                        f(*args, **kwargs)
+                        f(*args)
                 else:
                     if len(args) < nargs:
                         raise ValueError(
