@@ -72,6 +72,8 @@ from hyperspy import components
 from hyperspy.misc.utils import underline
 from hyperspy.misc.borrowed.astroML.histtools import histogram
 from hyperspy.drawing.utils import animate_legend
+from hyperspy.events import Events, Event
+
 
 
 class Signal2DTools(object):
@@ -2522,9 +2524,13 @@ class Signal(MVA,
         kwds['data'] = data
         self._load_dictionary(kwds)
         self._plot = None
+        self.signal_callback = None
         self.auto_replot = True
         self.inav = SpecialSlicers(self, True)
         self.isig = SpecialSlicers(self, False)
+        self.events = Events()
+        self.events.data_changed = Event()
+        self.events.axes_changed = Event()
 
     def _create_metadata(self):
         self.metadata = DictionaryTreeBrowser()
@@ -2557,7 +2563,7 @@ class Signal(MVA,
 
         return string.encode('utf8')
 
-    def __getitem__(self, slices, isNavigation=None):
+    def __getitem__(self, slices, isNavigation=None, out=None):
         try:
             len(slices)
         except TypeError:
@@ -2568,7 +2574,13 @@ class Signal(MVA,
         has_signal = True if isNavigation is None else not isNavigation
 
         # Create a deepcopy of self that contains a view of self.data
-        _signal = self._deepcopy_with_new_data(self.data)
+        if out is None:
+            _signal = self._deepcopy_with_new_data(self.data)
+        else:
+            out.data = self.data
+            out.axes_manager.update_from(self.axes_manager,
+                                         fields=('offset', 'scale', 'size'))
+            _signal = out
 
         nav_idx = [el.index_in_array for el in
                    _signal.axes_manager.navigation_axes]
@@ -2625,7 +2637,11 @@ class Signal(MVA,
                     isNavigation)
         _signal.get_dimensions_from_data()
 
-        return _signal
+        if out is None:
+            return _signal
+        else:
+            out.events.axes_changed.trigger()
+            out.events.data_changed.trigger()
 
     def __setitem__(self, i, j):
         """x.__setitem__(i, y) <==> x[i]=y
@@ -2896,8 +2912,13 @@ class Signal(MVA,
     def __call__(self, axes_manager=None):
         if axes_manager is None:
             axes_manager = self.axes_manager
-        return np.atleast_1d(
-            self.data.__getitem__(axes_manager._getitem_tuple))
+        
+        if self.signal_callback is None:
+            return np.atleast_1d(
+                self.data.__getitem__(axes_manager._getitem_tuple)) 
+        else:
+            return np.atleast_1d(self.signal_callback(axes_manager))
+        
 
     def plot(self, navigator="auto", axes_manager=None, **kwargs):
         """Plot the signal at the current coordinates.
@@ -3056,6 +3077,7 @@ class Signal(MVA,
                     " \"slider\", None, a Signal instance")
 
         self._plot.plot(**kwargs)
+        self.events.data_changed.connect(self.update_plot)
 
     def save(self, filename=None, overwrite=None, extension=None,
              **kwds):
@@ -3115,6 +3137,14 @@ class Signal(MVA,
         if self._plot is not None:
             if self._plot.is_active() is True:
                 self.plot()
+
+    def update_plot(self):
+        if self._plot is not None:
+            if self._plot.is_active() is True:
+                if self._plot.signal_plot is not None:
+                    self._plot.signal_plot.update()
+                if self._plot.navigator_plot is not None:
+                    self._plot.navigator_plot.update()
 
     @auto_replot
     def get_dimensions_from_data(self):
@@ -3555,15 +3585,65 @@ class Signal(MVA,
                 return
             self.metadata.Signal.record_by = self._record_by
             self._assign_subclass()
+    
+    def _update_calibration_from(self, axes_manager, fields=('offset', 'scale')):
+        self_lut = {a._origin_id: a for a in self.axes_manager._axes}
+        any_changes = False
+        for src_axis in axes_manager._axes:
+            if src_axis._origin_id not in self_lut:
+                continue
+            dst_axis = self_lut.pop(src_axis._origin_id)
+            changed = {}
+            for f in fields:
+                if getattr(dst_axis, f) != getattr(src_axis, f):
+                    changed[f] = getattr(src_axis, f)
+            if len(changed) > 0:
+                dst_axis.trait_set(**changed)
+                any_changes = True
+        return any_changes
 
-    def _apply_function_on_data_and_remove_axis(self, function, axis):
-        s = self._deepcopy_with_new_data(
-            function(self.data,
-                     axis=self.axes_manager[axis].index_in_array))
-        s._remove_axis(axis)
-        return s
+    def _apply_function_on_data_and_remove_axis(self, function, axis,
+                                                out=None):
+        if axis not in ("navigation", "signal"):
+            if out is None:
+                s = self._deepcopy_with_new_data(None)
+            else:
+                s = out
+            s.data = function(self.data,
+                            axis=self.axes_manager[axis].index_in_array)
+            if out is None:
+                s._remove_axis(axis)
+                return s
+            else:
+                return
 
-    def sum(self, axis):
+        if axis == "navigation":
+            if out is None:
+                s = self.get_current_signal(auto_filename=False,
+                                            auto_title=False)
+                s.data = s.data.copy() # Don't overwrite self.data 
+            else:
+                s = out
+            iaxes = sorted([ax.index_in_array
+                           for ax in self.axes_manager.navigation_axes])
+        elif axis == "signal":
+            if out is None:
+                s = self._get_navigation_signal()
+            else:
+                s = out
+            iaxes = sorted([ax.index_in_array
+                            for ax in self.axes_manager.signal_axes])
+        data = self.data
+        while iaxes:
+            data = function(data,
+                            axis=iaxes.pop())
+        s.data[:] = data
+        if out is None:
+            return s
+        else:
+            out.events.data_changed.trigger()
+
+    def sum(self, axis="navigation", out=None):
         """Sum the data over the given axis.
 
         Parameters
@@ -3592,9 +3672,10 @@ class Signal(MVA,
         s.sum(-1, True).plot()
 
         """
-        return self._apply_function_on_data_and_remove_axis(np.sum, axis)
+        return self._apply_function_on_data_and_remove_axis(np.sum, axis,
+                                                            out=out)
 
-    def max(self, axis, return_signal=False):
+    def max(self, axis="navigation", out=None):
         """Returns a signal with the maximum of the signal along an axis.
 
         Parameters
@@ -3621,9 +3702,10 @@ class Signal(MVA,
         (64,64)
 
         """
-        return self._apply_function_on_data_and_remove_axis(np.max, axis)
+        return self._apply_function_on_data_and_remove_axis(np.max, axis,
+                                                            out=out)
 
-    def min(self, axis):
+    def min(self, axis="navigation", out=None):
         """Returns a signal with the minimum of the signal along an axis.
 
         Parameters
@@ -3651,9 +3733,10 @@ class Signal(MVA,
 
         """
 
-        return self._apply_function_on_data_and_remove_axis(np.min, axis)
+        return self._apply_function_on_data_and_remove_axis(np.min, axis,
+                                                            out=out)
 
-    def mean(self, axis):
+    def mean(self, axis="navigation", out=None):
         """Returns a signal with the average of the signal along an axis.
 
         Parameters
@@ -3680,10 +3763,10 @@ class Signal(MVA,
         (64,64)
 
         """
-        return self._apply_function_on_data_and_remove_axis(np.mean,
-                                                            axis)
+        return self._apply_function_on_data_and_remove_axis(np.mean, axis,
+                                                            out=out)
 
-    def std(self, axis):
+    def std(self, axis="navigation", out=None):
         """Returns a signal with the standard deviation of the signal along
         an axis.
 
@@ -3711,9 +3794,10 @@ class Signal(MVA,
         (64,64)
 
         """
-        return self._apply_function_on_data_and_remove_axis(np.std, axis)
+        return self._apply_function_on_data_and_remove_axis(np.std, axis,
+                                                            out=out)
 
-    def var(self, axis):
+    def var(self, axis="navigation", out=None):
         """Returns a signal with the variances of the signal along an axis.
 
         Parameters
@@ -3740,7 +3824,8 @@ class Signal(MVA,
         (64,64)
 
         """
-        return self._apply_function_on_data_and_remove_axis(np.var, axis)
+        return self._apply_function_on_data_and_remove_axis(np.var, axis,
+                                                            out=out)
 
     def diff(self, axis, order=1):
         """Returns a signal with the n-th order discrete difference along
@@ -3847,7 +3932,7 @@ class Signal(MVA,
         else:
             return self.sum(axis)
 
-    def indexmax(self, axis):
+    def indexmax(self, axis="navigation", out=None):
         """Returns a signal with the index of the maximum along an axis.
 
         Parameters
@@ -3875,7 +3960,8 @@ class Signal(MVA,
         (64,64)
 
         """
-        return self._apply_function_on_data_and_remove_axis(np.argmax, axis)
+        return self._apply_function_on_data_and_remove_axis(np.argmax, axis,
+                                                            out=out)
 
     def valuemax(self, axis):
         """Returns a signal with the value of the maximum along an axis.
