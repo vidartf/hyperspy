@@ -1695,7 +1695,7 @@ class DraggableResizableRange(ResizableDraggablePatchBase):
                 pass
             if value is False:
                 self.ax = None
-        self.__is_on = value
+        self._InteractivePatchBase__is_on = value
 
     def _add_patch_to(self, ax):
         self.span = ModifiableSpanSelector(ax)
