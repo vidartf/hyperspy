@@ -43,6 +43,11 @@ class BaseROI(t.HasTraits):
 
     coords = property(lambda s: s._get_coords(), lambda s, v: s._set_coords(v))
 
+    def _get_ndim(self):
+        return len(self.coords)
+
+    ndim = property(lambda s: s._get_ndim())
+
     def update(self):
         """Function responsible for updating anything that depends on the ROI.
         It should be called by implementors whenever the ROI changes.
@@ -54,14 +59,13 @@ class BaseROI(t.HasTraits):
     def _make_slices(self, axes_collecion, axes, ranges=None):
         """
         Utility function to make a slice structure that will slice all the axes
-        in 'axes_manager'. The axes defined in 'axes[i]' argument will be
+        in 'axes_collecion'. The axes defined in 'axes[i]' argument will be
         sliced with 'ranges[i]', all other axes with 'slice(None)'. If 'ranges'
         is None, the ranges defined by the ROI will be used.
         """
         if ranges is None:
             ranges = []
-            ndim = len(self.coords)
-            for i in xrange(ndim):
+            for i in xrange(self.ndim):
                 c = self.coords[i]
                 if len(c) == 1:
                     ranges.append((c[0],))
@@ -71,12 +75,24 @@ class BaseROI(t.HasTraits):
         for ax in axes_collecion:
             if ax in axes:
                 i = axes.index(ax)
-                ilow = ax.value2index(ranges[i][0])
+                try:
+                    ilow = ax.value2index(ranges[i][0])
+                except ValueError:
+                    if ranges[i][0] < ax.low_value:
+                        ilow = ax.low_index
+                    else:
+                        raise
                 if len(ranges[i]) == 1:
                     ihigh = 1 + ilow
                 else:
-                    ihigh = 1 + ax.value2index(ranges[i][1],
-                                               rounding=lambda x: round(x - 1))
+                    try:
+                        ihigh = 1 + ax.value2index(
+                            ranges[i][1], rounding=lambda x: round(x - 1))
+                    except ValueError:
+                        if ranges[i][0] < ax.high_value:
+                            ihigh = ax.high_index + 1
+                        else:
+                            raise
                 slices.append(slice(ilow, ihigh))
             else:
                 slices.append(slice(None))
@@ -119,6 +135,27 @@ class BaseROI(t.HasTraits):
         else:
             signal.__getitem__(slices, out=out)
 
+    def mean(self, signal, out=None, axes=None):
+        if axes is None and signal in self.signal_map:
+            axes = self.signal_map[signal][1]
+        else:
+            axes = self._parse_axes(axes, signal.axes_manager)
+
+        roi = self(signal, out=None, axes=axes)
+        ids = []
+        for ax in axes:
+            ids.append(signal.axes_manager._axes.index(ax))
+        # Reverse-sort so indices stay valid while collapsing
+        ids.sort(reverse=True)
+        for idx in ids:
+            roi = roi.mean(axis=idx + 3j)
+
+        if out is None:
+            return roi
+        else:
+            out.data = roi.data
+            out.events.data_changed.trigger()
+
     def _parse_axes(self, axes, axes_manager):
         """Utility function to parse the 'axes' argument to a tuple of
         DataAxis, and find the matplotlib Axes that contains it.
@@ -145,7 +182,7 @@ class BaseROI(t.HasTraits):
         -------
         (tuple(<DataAxis>), matplotlib Axes)
         """
-        nd = len(self.coords)
+        nd = self.ndim
         if isinstance(axes, basestring) and (axes.startswith("nav") or
                                              axes.startswith("sig")):
             # Specifies space
@@ -319,13 +356,12 @@ class BaseInteractiveROI(BaseROI):
         signal.
         """
         # Check valid plot and navdim >= roi dim
-        ndim = len(self.coords)
         if signal._plot is None or \
-                signal.axes_manager.navigation_dimension < ndim:
+                signal.axes_manager.navigation_dimension < self.ndim:
             raise ValueError("Cannot navigate this signal with %s" %
                              self.__class__.__name__, signal)
 
-        nav_axes = signal.axes_manager.navigation_axes[0:ndim + 1]
+        nav_axes = signal.axes_manager.navigation_axes[0:self.ndim + 1]
 
         def nav_signal_function(axes_manager=None):
             if axes_manager is None:
@@ -940,3 +976,139 @@ class Line2DROI(BaseInteractiveROI):
             self.x2,
             self.y2,
             self.linewidth)
+
+
+class CircleROI(BaseInteractiveROI):
+
+    cx, cy, r, r_inner = (t.CFloat(t.Undefined),) * 4
+
+    def __init__(self, cx, cy, r, r_inner=None):
+        super(CircleROI, self).__init__()
+        self.cx, self.cy, self.r = cx, cy, r
+        if r_inner:
+            self.r_inner = r_inner
+
+    def _get_ndim(self):
+        return 2
+
+    def _get_coords(self):
+        return (self.cx,), (self.cy,), (self.r, self.r_inner)
+
+    def _set_coords(self, value):
+        if self.coords != value:
+            (self.cx,), (self.cy,), (self.r, self.r_inner) = value
+
+    def _set_coords_from_widget(self, widget):
+        """Sets the internal representation of the ROI from the passed widget,
+        without doing anything to events.
+        """
+        c = widget.coordinates
+        s = widget.size
+        self.coords = (c[0],), (c[1],), tuple(np.transpose(s).tolist())
+
+    def _cx_changed(self, old, new):
+        self.update()
+
+    def _cy_changed(self, old, new):
+        self.update()
+
+    def _r_changed(self, old, new):
+        self.update()
+
+    def _r_inner_changed(self, old, new):
+        self.update()
+
+    def _apply_roi2widget(self, widget):
+        widget.coordinates = np.array((self.cx, self.cy))
+        inner = self.r_inner if self.r_inner != t.Undefined else 0.0
+        widget.size = np.array((self.r, inner))
+
+    def _get_widget_type(self, axes, signal):
+        return widgets.Draggable2DCircle
+
+    def navigate(self, signal):
+        raise NotImplementedError("CircleROI does not support navigation.")
+
+    def __call__(self, signal, out=None, axes=None):
+        """Slice the signal according to the ROI, and return it.
+
+        Arguments
+        ---------
+        signal : Signal
+            The signal to slice with the ROI.
+        out : Signal, default = None
+            If the 'out' argument is supplied, the sliced output will be put
+            into this instead of returning a Signal. See Signal.__getitem__()
+            for more details on 'out'.
+        axes : specification of axes to use, default = None
+            The axes argument specifies which axes the ROI will be applied on.
+            The items in the collection can be either of the following:
+                * "navigation" or "signal", in which the first axes of that
+                  space's axes will be used.
+                * a tuple of:
+                    - DataAxis. These will not be checked with
+                      signal.axes_manager.
+                    - anything that will index signal.axes_manager
+                * For any other value, it will check whether the navigation
+                  space can fit the right number of axis, and use that if it
+                  fits. If not, it will try the signal space.
+        """
+        if axes is None and signal in self.signal_map:
+            axes = self.signal_map[signal][1]
+        else:
+            axes = self._parse_axes(axes, signal.axes_manager)
+
+        natax = signal.axes_manager._get_axes_in_natural_order()
+        # Slice original data with a circumscribed rectangle
+        ranges = [[self.cx - self.r, self.cx + self.r],
+                  [self.cy - self.r, self.cy + self.r]]
+        slices = self._make_slices(natax, axes, ranges)
+        ir = [slices[natax.index(axes[0])],
+              slices[natax.index(axes[1])]]
+        vx = axes[0].axis[ir[0]] - self.cx
+        vy = axes[1].axis[ir[1]] - self.cy
+        gx, gy = np.meshgrid(vx, vy)
+        gr = gx**2 + gy**2
+        mask = gr > self.r**2
+        if self.r_inner != t.Undefined:
+            mask |= gr < self.r_inner**2
+        tiles = []
+        shape = []
+        for i in xrange(len(slices)):
+            if i == natax.index(axes[0]):
+                tiles.append(1)
+                shape.append(mask.shape[0])
+            elif i == natax.index(axes[1]):
+                tiles.append(1)
+                shape.append(mask.shape[1])
+            else:
+                tiles.append(signal.axes_manager.shape[i])
+                shape.append(1)
+        mask = mask.reshape(shape)
+        mask = np.tile(mask, tiles)
+
+        if out is None:
+            roi = signal[slices]
+            roi.data = np.ma.masked_array(roi.data, mask, hard_mask=True)
+            return roi
+        else:
+            with out.events.suppress:
+                signal.__getitem__(slices, out=out)
+            out.data = np.ma.masked_array(out.data, mask, hard_mask=True)
+            out.events.axes_changed.trigger()
+            out.events.data_changed.trigger()
+
+    def __repr__(self):
+        if self.r_inner == t.Undefined:
+            return "%s(cx=%f, cy=%f, r=%f)" % (
+                self.__class__.__name__,
+                self.cx,
+                self.cy,
+                self.r)
+        else:
+            return "%s(cx=%f, cy=%f, r=%f, r_inner=%f)" % (
+                self.__class__.__name__,
+                self.cx,
+                self.cy,
+                self.r,
+                self.r_inner)

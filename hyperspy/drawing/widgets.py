@@ -46,7 +46,7 @@ def angle_between(v1, v2):
     v1_u = unit_vector(v1)
     v2_u = unit_vector(v2)
     angle = np.arctan2(v2_u[1], v2_u[0]) - np.arctan2(v1_u[1], v1_u[0])
-    #angle = np.arccos(np.dot(v1_u, v2_u))
+    # angle = np.arccos(np.dot(v1_u, v2_u))
     if np.isnan(angle):
         if (v1_u == v2_u).all():
             return 0.0
@@ -392,6 +392,7 @@ class ResizableDraggablePatchBase(DraggablePatchBase):
     def __init__(self, axes_manager):
         super(ResizableDraggablePatchBase, self).__init__(axes_manager)
         self._size = np.array([1])
+        self.size_step = 1
         self.events.resized = Event()
 
     def _get_size(self):
@@ -405,7 +406,7 @@ class ResizableDraggablePatchBase(DraggablePatchBase):
         change, if the value has changed.
         """
         value = np.minimum(value, [ax.size for ax in self.axes])
-        value = np.maximum(value, 1)
+        value = np.maximum(value, self.size_step)
         if np.any(self._size != value):
             self._size = value
             self._size_changed()
@@ -415,12 +416,12 @@ class ResizableDraggablePatchBase(DraggablePatchBase):
     def increase_size(self):
         """Increment all sizes by 1. Applied via 'size' property.
         """
-        self.size = np.array(self.size) + 1
+        self.size = np.array(self.size) + self.size_step
 
     def decrease_size(self):
         """Decrement all sizes by 1. Applied via 'size' property.
         """
-        self.size = np.array(self.size) - 1
+        self.size = np.array(self.size) - self.size_step
 
     def _size_changed(self):
         """Triggers resize and changed events, and updates the patch.
@@ -1074,6 +1075,100 @@ class ResizableDraggableRectangle(Patch2DBase):
                 self._validate_geometry(posx, posy)
             # Finally, apply any changes and trigger events/redraw:
             self._apply_changes(old_size=old_size, old_position=old_position)
+
+
+class Draggable2DCircle(Patch2DBase):
+
+    """Draggable2DCircle is a symmetric, Cicle-patch based widget, which can
+    be dragged, and resized by keystrokes/code.
+    """
+
+    def __init__(self, axes_manager):
+        super(Draggable2DCircle, self).__init__(axes_manager)
+        self.size_step = self.axes[0].scale
+
+    def _set_size(self, value):
+        """Setter for the 'size' property. Calls _size_changed to handle size
+        change, if the value has changed.
+        """
+        # Override so that r_inner can be 0
+        value = np.minimum(value, [ax.size for ax in self.axes])
+        value = np.maximum(value, (self.size_step, 0))  # Changed from base
+        if np.any(self._size != value):
+            self._size = value
+            self._size_changed()
+
+    def increase_size(self):
+        """Increment all sizes by 1. Applied via 'size' property.
+        """
+        s = np.array(self.size)
+        if self.size[1] > 0:
+            s += self.size_step
+        else:
+            s[0] += self.size_step
+        self.size = s
+
+    def decrease_size(self):
+        """Decrement all sizes by 1. Applied via 'size' property.
+        """
+        s = np.array(self.size)
+        if self.size[1] > 0:
+            s -= self.size_step
+        else:
+            s[0] -= self.size_step
+        self.size = s
+
+    def get_centre(self):
+        return self._get_patch_xy()
+
+    def _get_patch_xy(self):
+        """Returns the xy coordinate of the patch. In this implementation, the
+        patch is centered on the position.
+        """
+        return self.coordinates
+
+    def _set_patch(self):
+        """Sets the patch to a matplotlib Circle with the correct geometry.
+        The geometry is defined by _get_patch_xy, and get_size_in_axes.
+        """
+        xy = self._get_patch_xy()
+        ro, ri = self.get_size_in_axes()
+        self.patch = plt.Circle(
+            xy, radius=ro,
+            animated=self.blit,
+            fill=False,
+            lw=self.border_thickness,
+            ec=self.color,
+            picker=True,)
+
+    def get_size_in_axes(self):
+        return np.array(self._size)
+
+    def _onmousemove(self, event):
+        'on mouse motion move the patch if picked'
+        # TODO: Switch to delta moves
+        if self.picked is True and event.inaxes:
+            ix = self.axes[0].value2index(event.xdata)
+            iy = self.axes[1].value2index(event.ydata)
+            self.position = (ix, iy)
+
+    def _update_patch_position(self):
+        if self.is_on() and self.patch is not None:
+            self.patch.center = self._get_patch_xy()
+            self.draw_patch()
+
+    def _update_patch_size(self):
+        if self.is_on() and self.patch is not None:
+            ro, ri = self.get_size_in_axes()
+            self.patch.radius = ro
+            self.draw_patch()
+
+    def _update_patch_geometry(self):
+        if self.is_on() and self.patch is not None:
+            ro, ri = self.get_size_in_axes()
+            self.patch.center = self._get_patch_xy()
+            self.patch.radius = ro
+            self.draw_patch()
 
 
 class DraggableHorizontalLine(DraggablePatchBase):
@@ -1860,7 +1955,8 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         self.cids.append(
             self.canvas.mpl_connect('button_press_event', self.mm_on_press))
         self.cids.append(
-            self.canvas.mpl_connect('button_release_event', self.mm_on_release))
+            self.canvas.mpl_connect('button_release_event',
+                                    self.mm_on_release))
         self.cids.append(
             self.canvas.mpl_connect('draw_event', self.update_background))
         self.rect.set_visible(True)
