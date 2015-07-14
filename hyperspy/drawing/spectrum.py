@@ -82,9 +82,11 @@ class SpectrumFigure(BlittedFigure):
             if line.axes_manager is None:
                 line.axes_manager = self.axes_manager
             self.ax_lines.append(line)
+            line.sf_lines = self.ax_lines
         elif ax == 'right':
             line.ax = self.right_ax
             self.right_ax_lines.append(line)
+            line.sf_lines = self.right_ax_lines
             if line.axes_manager is None:
                 line.axes_manager = self.right_axes_manager
         line.axis = self.axis
@@ -200,6 +202,8 @@ class SpectrumLine(object):
     """
 
     def __init__(self):
+        self.sf_lines = None
+        self.ax = None
         # Data attributes
         self.data_function = None
         self.axis = None
@@ -377,6 +381,8 @@ class SpectrumLine(object):
         if self.text and self.text in self.ax.texts:
             self.ax.texts.remove(self.text)
         self.axes_manager.disconnect(self.update)
+        if self.sf_lines and self in self.sf_lines:
+            self.sf_lines.remove(self)
         try:
             self.ax.figure.canvas.draw()
         except:
