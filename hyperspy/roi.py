@@ -112,16 +112,12 @@ class BaseROI(t.HasTraits):
                 slices.append(slice(None))
         return tuple(slices)
 
-    def __call__(self, signal, out=None, axes=None):
+    def __call__(self, signal, axes=None):
         """Slice the signal according to the ROI, and return it.
         Arguments
         ---------
         signal : Signal
             The signal to slice with the ROI.
-        out : Signal, default = None
-            If the 'out' argument is supplied, the sliced output will be put
-            into this instead of returning a Signal. See Signal.__getitem__()
-            for more details on 'out'.
         axes : specification of axes to use, default = None
             The axes argument specifies which axes the ROI will be applied on.
             The items in the collection can be either of the following:
@@ -138,11 +134,8 @@ class BaseROI(t.HasTraits):
         axes = self._parse_axes(axes, signal.axes_manager)
         natax = signal.axes_manager._get_axes_in_natural_order()
         slices = self._make_slices(natax, axes)
-        if out is None:
-            roi = signal[slices]
-            return roi
-        else:
-            signal.__getitem__(slices, out=out)
+        roi = signal[slices]
+        return roi
 
     def _parse_axes(self, axes, axes_manager):
         """Utility function to parse the 'axes' argument to a tuple of
@@ -534,16 +527,12 @@ class Line2DROI(BaseROI):
 
         return intensities
 
-    def __call__(self, signal, out=None, axes=None, order=0):
+    def __call__(self, signal, axes=None, order=0):
         """Slice the signal according to the ROI, and return it.
         Arguments
         ---------
         signal : Signal
             The signal to slice with the ROI.
-        out : Signal, default = None
-            If the 'out' argument is supplied, the sliced output will be put
-            into this instead of returning a Signal. See Signal.__getitem__()
-            for more details on 'out'.
         axes : specification of axes to use, default = None
             The axes argument specifies which axes the ROI will be applied on.
             The items in the collection can be either of the following:
@@ -566,38 +555,25 @@ class Line2DROI(BaseROI):
                                          order=order)
         length = np.linalg.norm(np.diff(
                 np.array(self.coordinates).T, axis=0), axis=1)[0]
-        if out is None:
-            axm = signal.axes_manager.deepcopy()
-            idx = []
-            for ax in axes:
-                idx.append(ax.index_in_axes_manager)
-            for i in reversed(sorted(idx)):  # Remove in reversed order
-                axm.remove(i)
-            axis = DataAxis(len(profile),
-                            scale=length/len(profile),
-                            units=axes[0].units,
-                            navigate=axes[0].navigate)
-            axis.axes_manager = axm
-            i0 = min(axes[0].index_in_array, axes[1].index_in_array)
-            axm._axes.insert(i0, axis)
-            from hyperspy.signals import Signal
-            roi = Signal(profile, axes=axm._get_axes_dicts(),
-                         metadata=signal.metadata.deepcopy().as_dictionary(),
-                         original_metadata=signal.original_metadata.
-                         deepcopy().as_dictionary())
-            return roi
-        else:
-            out.data = profile
-            i0 = min(axes[0].index_in_array, axes[1].index_in_array)
-            ax = out.axes_manager[i0 + 3j]
-            size = len(profile)
-            scale = length/len(profile)
-            axchange = size != ax.size or scale != ax.scale
-            if axchange:
-                ax.size = len(profile)
-                ax.scale = length/len(profile)
-                out.events.axes_changed.trigger(ax)
-            out.events.data_changed.trigger()
+        axm = signal.axes_manager.deepcopy()
+        idx = []
+        for ax in axes:
+            idx.append(ax.index_in_axes_manager)
+        for i in reversed(sorted(idx)):  # Remove in reversed order
+            axm.remove(i)
+        axis = DataAxis(len(profile),
+                        scale=length/len(profile),
+                        units=axes[0].units,
+                        navigate=axes[0].navigate)
+        axis.axes_manager = axm
+        i0 = min(axes[0].index_in_array, axes[1].index_in_array)
+        axm._axes.insert(i0, axis)
+        from hyperspy.signals import Signal
+        roi = Signal(profile, axes=axm._get_axes_dicts(),
+                     metadata=signal.metadata.deepcopy().as_dictionary(),
+                     original_metadata=signal.original_metadata.
+                     deepcopy().as_dictionary())
+        return roi
 
     def __repr__(self):
         return "%s(x1=%f, y1=%f, x2=%f, y2=%f, linewidth=%f)" % (
@@ -643,16 +619,12 @@ class CircleROI(BaseROI):
                   [self.cy - self.r, self.cy + self.r]]
         return ranges
 
-    def __call__(self, signal, out=None, axes=None):
+    def __call__(self, signal, axes=None):
         """Slice the signal according to the ROI, and return it.
         Arguments
         ---------
         signal : Signal
             The signal to slice with the ROI.
-        out : Signal, default = None
-            If the 'out' argument is supplied, the sliced output will be put
-            into this instead of returning a Signal. See Signal.__getitem__()
-            for more details on 'out'.
         axes : specification of axes to use, default = None
             The axes argument specifies which axes the ROI will be applied on.
             The items in the collection can be either of the following:
@@ -701,17 +673,10 @@ class CircleROI(BaseROI):
         mask = mask.reshape(shape)
         mask = np.tile(mask, tiles)
 
-        # Apply mask, and return OR trigger change events if 'out' supplied
-        if out is None:
-            roi = signal[slices]
-            roi.data = np.ma.masked_array(roi.data, mask, hard_mask=True)
-            return roi
-        else:
-            with out.events.suppress:
-                signal.__getitem__(slices, out=out)
-            out.data = np.ma.masked_array(out.data, mask, hard_mask=True)
-            out.events.axes_changed.trigger()
-            out.events.data_changed.trigger()
+        # Apply mask, and return
+        roi = signal[slices]
+        roi.data = np.ma.masked_array(roi.data, mask, hard_mask=True)
+        return roi
 
     def __repr__(self):
         if self.r_inner == t.Undefined:
