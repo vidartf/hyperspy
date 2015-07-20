@@ -3115,6 +3115,14 @@ class Signal(MVA,
             filename = basename + '.' + extension
         io.save(filename, self, overwrite=overwrite, **kwds)
 
+    def update_plot(self):
+        if self._plot is not None:
+            if self._plot.is_active() is True:
+                if self._plot.signal_plot is not None:
+                    self._plot.signal_plot.update()
+                if self._plot.navigator_plot is not None:
+                    self._plot.navigator_plot.update()
+
     def _replot(self):
         if self._plot is not None:
             if self._plot.is_active() is True:
