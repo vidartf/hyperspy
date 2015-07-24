@@ -182,8 +182,8 @@ class ImagePlot(BlittedFigure):
 
     def optimize_contrast(self, data):
         if (self.vmin is not None and
-            self.vmax is not None and
-            not self.auto_contrast):
+                self.vmax is not None and
+                not self.auto_contrast):
             return
         if 'complex' in data.dtype.name:
             data = np.log(np.abs(data))
@@ -442,8 +442,10 @@ class ImagePlot(BlittedFigure):
             self.colorbar_vmin = math.floor(vmin / 10 ** oom) * 10 ** oom
             self.colorbar_vmax = self.colorbar_vmin + \
                 self.colorbar_step * (number_of_ticks - 1)
-            self.colorbar_locs = np.arange(0, number_of_ticks
-                                           ) * self.colorbar_step + self.colorbar_vmin
+            self.colorbar_locs = (
+                np.arange(0, number_of_ticks) *
+                self.colorbar_step +
+                self.colorbar_vmin)
 
         def check_tolerance():
             if abs(self.colorbar_vmax - vmax) / vmax > (

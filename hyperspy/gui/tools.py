@@ -429,13 +429,16 @@ class Smoothing(t.HasTraits):
 
 
 class SmoothingSavitzkyGolay(Smoothing):
+
     polynomial_order = t.Int(
         3,
         desc="The order of the polynomial used to fit the samples."
              "`polyorder` must be less than `window_length`.")
+
     window_length = t.Int(
         5,
         desc="`window_length` must be a positive odd integer.")
+
     increase_window_length = t.Button(orientation="horizontal", label="+")
     decrease_window_length = t.Button(orientation="horizontal", label="-")
 
@@ -443,21 +446,26 @@ class SmoothingSavitzkyGolay(Smoothing):
         tu.Group(
             tu.Group(
                 'window_length',
-                tu.Item('decrease_window_length', show_label=False),
-                tu.Item('increase_window_length', show_label=False),
+                tu.Item(
+                    'decrease_window_length',
+                    show_label=False),
+                tu.Item(
+                    'increase_window_length',
+                    show_label=False),
                 orientation="horizontal"),
-
             'polynomial_order',
             tu.Item(
                 name='differential_order',
-                tooltip='The order of the derivative to compute.  This must be a'
-                     'nonnegative integer.  The default is 0, which means to '
-                     'filter the data without differentiating.',),
+                tooltip='The order of the derivative to compute. This must '
+                        'be a nonnegative integer. The default is 0, which '
+                        'means to filter the data without differentiating.',
+            ),
             'line_color'),
         kind='live',
         handler=SmoothingHandler,
         buttons=OKCancelButtons,
-        title='Savitzky-Golay Smoothing',)
+        title='Savitzky-Golay Smoothing',
+    )
 
     def _increase_window_length_fired(self):
         if self.window_length % 2:
@@ -562,8 +570,9 @@ class SmoothingLowess(Smoothing):
         return self.single_spectrum.data
 
     def apply(self):
-        self.signal.smooth_lowess(smoothing_parameter=self.smoothing_parameter,
-                                  number_of_iterations=self.number_of_iterations)
+        self.signal.smooth_lowess(
+            smoothing_parameter=self.smoothing_parameter,
+            number_of_iterations=self.number_of_iterations)
         self.signal._replot()
 
 
