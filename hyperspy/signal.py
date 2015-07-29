@@ -3884,18 +3884,15 @@ class Signal(MVA,
     def diff(self, axis, order=1):
         """Returns a signal with the n-th order discrete difference along
         given axis.
-
         Parameters
         ----------
         axis : {int | string}
            The axis can be specified using the index of the axis in
            `axes_manager` or the axis name.
         order: the order of the derivative
-
         See also
         --------
         mean, sum
-
         Examples
         --------
         >>> import numpy as np
@@ -3904,15 +3901,49 @@ class Signal(MVA,
         (64,64,1024)
         >>> s.diff(-1).data.shape
         (64,64,1023)
-
         """
 
         s = self._deepcopy_with_new_data(
-            np.diff(self.data, order, axis))
-        axis = s.axes_manager._axes[axis]
-        axis.offset += (axis.scale / 2)
+            np.diff(self.data,
+                    n=order,
+                    axis=self.axes_manager[axis].index_in_array))
+        axis = s.axes_manager[axis]
+        axis.offset += (order * axis.scale / 2)
         s.get_dimensions_from_data()
         return s
+
+    def derivative(self, axis, order=1):
+        """Numerical derivative along the given axis.
+
+        Currently only the first order finite difference method is implemented.
+
+        Parameters
+        ----------
+        axis : {int | string}
+           The axis can be specified using the index of the axis in
+           `axes_manager` or the axis name.
+        order: int
+            The order of the derivative. (Note that this is the order of the
+            derivative i.e. `order=2` does not use second order finite
+            differences method.)
+
+        Returns
+        -------
+        der : Signal
+            Note that the size of the data on the given `axis` decreases by the
+            given `order` i.e. if `axis` is "x" and `order` is 2 the x dimension
+            is N, der's x dimension is N - 2.
+
+        See also
+        --------
+        diff
+
+        """
+
+        der = self.diff(order=order, axis=axis)
+        axis = self.axes_manager[axis]
+        der.data /= axis.scale ** order
+        return der
 
     def integrate_simpson(self, axis):
         """Returns a signal with the result of calculating the integral
@@ -4797,6 +4828,10 @@ class Signal(MVA,
             self._plot.navigator_plot.add_marker(marker)
         if plot_marker:
             marker.plot()
+
+    def create_model(self):
+        from hyperspy.model import Model
+        return Model(self)
 
 
 # Implement binary operators
