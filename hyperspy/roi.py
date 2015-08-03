@@ -789,6 +789,13 @@ class Line2DROI(BaseInteractiveROI):
             data[1, :, :] += np.tile(row_off, [length, 1])
         return data
 
+    @property
+    def length(self):
+        p0 = np.array((self.x1, self.y1), dtype=np.float)
+        p1 = np.array((self.x2, self.y2), dtype=np.float)
+        d_row, d_col = p1 - p0
+        return np.hypot(d_row, d_col)
+
     @staticmethod
     def profile_line(img, src, dst, axes, linewidth=1,
                      order=1, mode='constant', cval=0.0):

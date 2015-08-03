@@ -303,7 +303,7 @@ class DraggablePatchBase(InteractivePatchBase):
         coord = []
         for i in xrange(len(self.axes)):
             coord.append(self.axes[i].index2value(self.position[i]))
-        return np.array(coord)
+        return tuple(coord)
 
     def _set_coordinates(self, coordinates):
         """Sets the position of the widget (by values). The dimensions should
@@ -544,7 +544,7 @@ class Patch2DBase(ResizableDraggablePatchBase):
         """Returns the xy coordinate of the patch. In this implementation, the
         patch is centered on the position.
         """
-        return self.coordinates - self.get_size_in_axes() / 2.
+        return np.array(self.coordinates) - self.get_size_in_axes() / 2.
 
     def _get_patch_bounds(self):
         """Returns the bounds of the patch in the form of a tuple in the order
@@ -1261,7 +1261,8 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
     in the following regards: 'linewidth' is simply the width of the patch
     drawn from point to point. If 'size' is greater than 1, it will in
     principle select a rotated rectangle. If 'size' is greater than 4, the
-    bounds of this rectangle will be visualized by two extra dashed lines.
+    bounds of this rectangle will be visualized by two dashed lines along the
+    outline of this rectangle, instead of a signle line in the center.
 
     The widget also adds the attributes 'radius_resize', 'radius_move' and
     'radius_rotate' (defaults: 5, 5, 10), which determines the picker radius
@@ -1342,7 +1343,7 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         return pos
 
     def _get_coordinates(self):
-        return self._pos.copy()
+        return tuple(self._pos.tolist())
 
     def _set_coordinates(self, coordinates):
         coordinates = self._validate_coords(coordinates)
@@ -1353,30 +1354,30 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
     def _validate_coords(self, coords):
         """Make sure all points of 'pos' are within axis bounds.
         """
+        coords = np.array(coords)
         ndim = np.shape(coords)[1]
         if ndim != len(self.axes):
             raise ValueError()
         for i in xrange(ndim):
             ax = self.axes[i]
-            coords[
-                :,
-                i] = np.maximum(
-                coords[
-                    :,
-                    i],
-                ax.low_value -
-                0.5 *
-                ax.scale)
-            coords[
-                :,
-                i] = np.minimum(
-                coords[
-                    :,
-                    i],
-                ax.high_value +
-                0.5 *
-                ax.scale)
+            coords[:, i] = np.maximum(coords[:, i],
+                                      ax.low_value - 0.5 * ax.scale)
+            coords[:, i] = np.minimum(coords[:, i],
+                                      ax.high_value + 0.5 * ax.scale)
         return coords
+
+    def _set_size(self, value):
+        """Setter for the 'size' property. Calls _size_changed to handle size
+        change, if the value has changed.
+        """
+        try:
+            value[0]
+        except TypeError:
+            value = np.array([value])
+        value = np.maximum(value, 1)
+        if np.any(self._size != value):
+            self._size = value
+            self._size_changed()
 
     def _get_line_normal(self):
         v = np.diff(self.coordinates, axis=0)   # Line vector
@@ -1401,7 +1402,7 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         s = self.size * np.array([ax.scale for ax in self.axes])
         n = self._get_line_normal()
         n *= np.linalg.norm(n * s) / 2
-        c = self.coordinates
+        c = np.array(self.coordinates)
         return c + n, c - n
 
     def _update_patch_position(self):
@@ -1414,7 +1415,7 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         """Set line position, and set width indicator's if appropriate
         """
         if self.is_on() and self.patch is not None:
-            self.patch.set_data(self.coordinates.T)
+            self.patch.set_data(np.array(self.coordinates).T)
             self.draw_patch()
             wc = self._get_width_indicator_coords()
             for i in xrange(2):
@@ -1425,7 +1426,7 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         appropriate.
         """
         self.ax.autoscale(False)   # Prevent plotting from rescaling
-        xy = self.coordinates
+        xy = np.array(self.coordinates)
         max_r = max(self.radius_move, self.radius_resize,
                     self.radius_rotate)
         self.patch, = self.ax.plot(
@@ -1547,20 +1548,20 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
             self.func = self._get_func_from_pos(me.x, me.y)
             self._prev_pos = [me.xdata, me.ydata]
             if self.func & self.FUNC_ROTATE:
-                self._rotate_orig = self.coordinates
+                self._rotate_orig = np.array(self.coordinates)
 
     def _onmousemove(self, event):
-        """Delegate to move(), resize() or rotate().
+        """Delegate to _move(), _resize() or _rotate().
         """
         if self.picked is True:
             if self.func & self.FUNC_MOVE and event.inaxes:
-                self.move(event)
+                self._move(event)
             elif self.func & self.FUNC_RESIZE and event.inaxes:
-                self.resize(event)
+                self._resize(event)
             elif self.func & self.FUNC_ROTATE:
-                self.rotate(event)
+                self._rotate(event)
 
-    def get_diff(self, event):
+    def _get_diff(self, event):
         """Get difference in position in event and what is stored in _prev_pos,
         in value space.
         """
@@ -1574,33 +1575,33 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
             dy = event.ydata - self._prev_pos[1]
         return np.array((dx, dy))
 
-    def move(self, event):
+    def _move(self, event):
         """Move line by difference from pick / last mouse move. Update
         '_prev_pos'.
         """
-        dx = self.get_diff(event)
+        dx = self._get_diff(event)
         self.coordinates += dx
         self._prev_pos += dx
 
-    def resize(self, event):
+    def _resize(self, event):
         """Move vertex by difference from pick / last mouse move. Update
         '_prev_pos'.
         """
         ip = self._get_vertex(event)
-        dx = self.get_diff(event)
-        p = self.coordinates
+        dx = self._get_diff(event)
+        p = np.array(self.coordinates)
         p[ip, 0:2] += dx
         self.coordinates = p
         self._prev_pos += dx
 
-    def rotate(self, event):
+    def _rotate(self, event):
         """Rotate original points by the angle between mouse position and
         rotation start position (rotation center = line center).
         """
         if None in (event.xdata, event.ydata):
             return
         # Rotate does not update last pos, to avoid inaccuracies by deltas
-        dx = self.get_diff(event)
+        dx = self._get_diff(event)
 
         # Rotation should happen in screen coordinates, as anything else will
         # mix units
