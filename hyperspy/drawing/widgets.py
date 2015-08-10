@@ -995,7 +995,6 @@ class ResizableDraggableRectangle(Patch2DBase):
 
     def _onmousemove(self, event):
         """on mouse motion draw the cursor if picked"""
-        """
         # Simple checks to make sure we are dragging our patch:
         if self.picked is True and event.inaxes:
             # Setup reused parameters
