@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2011 The HyperSpy developers
+# Copyright 2007-2015 The HyperSpy developers
 #
 # This file is part of  HyperSpy.
 #
@@ -97,7 +97,7 @@ class EDSSpectrum(Spectrum):
                 "Only `eV` and `keV` are supported. "
                 "If `s` is the variable containing this EDS spectrum:\n "
                 ">>> s.axes_manager.signal_axes[0].units = \'keV\' \n"
-                % (units_name))
+                % units_name)
         if FWHM_MnKa is None:
             return line_energy
         else:
@@ -124,7 +124,7 @@ class EDSSpectrum(Spectrum):
         units_name = self.axes_manager.signal_axes[0].units
 
         if units_name == 'eV':
-            beam_energy = beam_energy * 1000
+            beam_energy *= 1000
         return beam_energy
 
     def _get_xray_lines_in_spectral_range(self, xray_lines):
@@ -149,7 +149,7 @@ class EDSSpectrum(Spectrum):
         xray_lines_not_in_range = []
         for xray_line in xray_lines:
             line_energy = self._get_line_energy(xray_line)
-            if line_energy > low_value and line_energy < high_value:
+            if low_value < line_energy < high_value:
                 xray_lines_in_range.append(xray_line)
             else:
                 xray_lines_not_in_range.append(xray_line)
@@ -174,7 +174,7 @@ class EDSSpectrum(Spectrum):
 
         Examples
         --------
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.sum(0).data
         array(1000279)
 
@@ -200,7 +200,7 @@ class EDSSpectrum(Spectrum):
 
         Examples
         --------
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> print s
         >>> print s.rebin([512])
         <EDSSEMSpectrum, title: EDS SEM Spectrum, dimensions: (|1024)>
@@ -239,7 +239,7 @@ class EDSSpectrum(Spectrum):
 
         Examples
         --------
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> print s.metadata.Sample.elements
         >>> s.set_elements(['Al'])
         >>> print s.metadata.Sample.elements
@@ -264,7 +264,7 @@ class EDSSpectrum(Spectrum):
 
         Examples
         --------
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> print s.metadata.Sample.elements
         >>> s.add_elements(['Ar'])
         >>> print s.metadata.Sample.elements
@@ -299,7 +299,7 @@ class EDSSpectrum(Spectrum):
         self.metadata.Sample.elements = sorted(list(elements_))
 
     def _get_xray_lines(self, xray_lines=None, only_one=None,
-                        only_lines=['a']):
+                        only_lines=('a',)):
         if xray_lines is None:
             if 'Sample.xray_lines' in self.metadata:
                 xray_lines = self.metadata.Sample.xray_lines
@@ -316,7 +316,7 @@ class EDSSpectrum(Spectrum):
     def set_lines(self,
                   lines,
                   only_one=True,
-                  only_lines=('a')):
+                  only_lines=('a',)):
         """Erase all Xrays lines and set them.
 
         See add_lines for details.
@@ -339,7 +339,7 @@ class EDSSpectrum(Spectrum):
 
         Examples
         --------
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.add_lines()
         >>> print s.metadata.Sample.xray_lines
         >>> s.set_lines(['Cu_Ka'])
@@ -362,7 +362,7 @@ class EDSSpectrum(Spectrum):
     def add_lines(self,
                   lines=(),
                   only_one=True,
-                  only_lines=("a")):
+                  only_lines=("a",)):
         """Add X-rays lines to the internal list.
 
         Although most functions do not require an internal list of
@@ -392,18 +392,18 @@ class EDSSpectrum(Spectrum):
 
         Examples
         --------
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.add_lines()
         >>> print s.metadata.Sample.xray_lines
         ['Al_Ka', 'C_Ka', 'Cu_La', 'Mn_La', 'Zr_La']
 
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.set_microscope_parameters(beam_energy=30)
         >>> s.add_lines()
         >>> print s.metadata.Sample.xray_lines
         ['Al_Ka', 'C_Ka', 'Cu_Ka', 'Mn_Ka', 'Zr_La']
 
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.add_lines()
         >>> print s.metadata.Sample.xray_lines
         >>> s.add_lines(['Cu_Ka'])
@@ -451,7 +451,7 @@ class EDSSpectrum(Spectrum):
                     "%s is not a valid symbol of an element." % element)
         xray_not_here = self._get_xray_lines_in_spectral_range(xray_lines)[1]
         for xray in xray_not_here:
-            warnings.warn("%s is not in the data energy range." % (xray))
+            warnings.warn("%s is not in the data energy range." % xray)
         if "Sample.elements" in self.metadata:
             extra_elements = (set(self.metadata.Sample.elements) -
                               elements)
@@ -473,7 +473,7 @@ class EDSSpectrum(Spectrum):
     def _get_lines_from_elements(self,
                                  elements,
                                  only_one=False,
-                                 only_lines=("a")):
+                                 only_lines=("a",)):
         """Returns the X-ray lines of the given elements in spectral range
         of the data.
 
@@ -531,7 +531,7 @@ class EDSSpectrum(Spectrum):
                             background_windows=None,
                             plot_result=False,
                             only_one=True,
-                            only_lines=("a"),
+                            only_lines=("a",),
                             **kwargs):
         """Return the intensity map of selected Xray lines.
 
@@ -587,17 +587,17 @@ class EDSSpectrum(Spectrum):
 
         Examples
         --------
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.get_lines_intensity(['Mn_Ka'], plot_result=True)
         Mn_La at 0.63316 keV : Intensity = 96700.00
 
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.plot(['Mn_Ka'], integration_windows=2.1)
         >>> s.get_lines_intensity(['Mn_Ka'],
         >>>                       integration_windows=2.1, plot_result=True)
         Mn_Ka at 5.8987 keV : Intensity = 53597.00
 
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.set_elements(['Mn'])
         >>> s.set_lines(['Mn_Ka'])
         >>> bw = s.estimate_background_windows()
@@ -618,10 +618,10 @@ class EDSSpectrum(Spectrum):
         xray_lines, xray_not_here = self._get_xray_lines_in_spectral_range(
             xray_lines)
         for xray in xray_not_here:
-            warnings.warn("%s is not in the data energy range." % (xray) +
+            warnings.warn("%s is not in the data energy range." % xray +
                           "You can remove it with" +
                           "s.metadata.Sample.xray_lines.remove('%s')"
-                          % (xray))
+                          % xray)
         if hasattr(integration_windows, '__iter__') is False:
             integration_windows = self.estimate_integration_windows(
                 windows_width=integration_windows, xray_lines=xray_lines)
@@ -690,7 +690,7 @@ class EDSSpectrum(Spectrum):
 
         Examples
         --------
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.get_take_off_angle()
         37.0
         >>> s.set_microscope_parameters(tilt_stage=20.)
@@ -699,7 +699,7 @@ class EDSSpectrum(Spectrum):
 
         See also
         --------
-        utils.eds.take_off_angle
+        hs.eds.take_off_angle
 
         Notes
         -----
@@ -745,7 +745,7 @@ class EDSSpectrum(Spectrum):
 
         Examples
         --------
-        >>> s = utils.example_signals.EDS_TEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_TEM_Spectrum()
         >>> s.add_lines()
         >>> iw = s.estimate_integration_windows()
         >>> s.plot(integration_windows=iw)
@@ -799,7 +799,7 @@ class EDSSpectrum(Spectrum):
 
         Examples
         --------
-        >>> s = utils.example_signals.EDS_TEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_TEM_Spectrum()
         >>> s.add_lines()
         >>> bw = s.estimate_background_windows(line_width=[5.0, 2.0])
         >>> s.plot(background_windows=bw)
@@ -886,21 +886,21 @@ class EDSSpectrum(Spectrum):
 
         Examples
         --------
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.plot()
 
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.plot(True)
 
-        >>> s = utils.example_signals.EDS_TEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_TEM_Spectrum()
         >>> s.add_lines()
         >>> bw = s.estimate_background_windows()
         >>> s.plot(background_windows=bw)
 
-        >>> s = utils.example_signals.EDS_SEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.plot(['Mn_Ka'], integration_windows='auto')
 
-        >>> s = utils.example_signals.EDS_TEM_Spectrum()
+        >>> s = hs.datasets.example_signals.EDS_TEM_Spectrum()
         >>> s.add_lines()
         >>> bw = s.estimate_background_windows()
         >>> s.plot(background_windows=bw, integration_windows=2.1)
@@ -939,7 +939,7 @@ class EDSSpectrum(Spectrum):
             xray_lines, xray_not_here = self._get_xray_lines_in_spectral_range(
                 xray_lines)
             for xray in xray_not_here:
-                print("Warning: %s is not in the data energy range." % (xray))
+                print("Warning: %s is not in the data energy range." % xray)
             xray_lines = np.unique(xray_lines)
             self._add_xray_lines_markers(xray_lines)
             if background_windows is not None:

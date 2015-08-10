@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2011 The HyperSpy developers
+# Copyright 2007-2015 The HyperSpy developers
 #
 # This file is part of  HyperSpy.
 #
@@ -301,7 +301,7 @@ class ImagePlot(BlittedFigure):
 
     def _update_text(self):
         if self.plot_indices is True:
-            self._text.set_text((self.axes_manager.indices))
+            self._text.set_text(self.axes_manager.indices)
 
     def _update_colorbar(self, idx):
         if self.colorbar:
@@ -377,13 +377,12 @@ class ImagePlot(BlittedFigure):
             if np.isnan(data).any():
                 self.figure.canvas.draw()
         else:
-            new_args = {}
-            new_args['interpolation'] = 'nearest'
-            new_args['vmin'] = self.vmin
-            new_args['vmax'] = self.vmax
-            new_args['extent'] = self._extent
-            new_args['aspect'] = self._aspect
-            new_args['animated'] = True
+            new_args = {'interpolation': 'nearest',
+                        'vmin': self.vmin,
+                        'vmax': self.vmax,
+                        'extent': self._extent,
+                        'aspect': self._aspect,
+                        'animated': True}
             new_args.update(kwargs)
             img = self.ax.imshow(data,
                                  **new_args)

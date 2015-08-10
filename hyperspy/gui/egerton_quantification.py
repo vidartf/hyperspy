@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2011 The HyperSpy developers
+# Copyright 2007-2015 The HyperSpy developers
 #
 # This file is part of  HyperSpy.
 #
@@ -60,10 +60,12 @@ class BackgroundRemoval(SpanSelectorInSpectrum):
             tu.Group(
                 'polynomial_order',
                 visible_when='background_type == \'Polynomial\''), ),
-            'estimate_background',
         buttons=[OKButton, CancelButton],
         handler=SpanSelectorInSpectrumHandler,
-        title='Background removal tool')
+        title='Background removal tool',
+        resizable=True,
+        width=300,
+    )
 
     def __init__(self, signal):
         super(BackgroundRemoval, self).__init__(signal)
@@ -107,10 +109,12 @@ class BackgroundRemoval(SpanSelectorInSpectrum):
             self.estimate_fit = True
 
     def _ss_left_value_changed(self, old, new):
-        self.span_selector_changed()
+        if not (np.isnan(self.ss_right_value) or np.isnan(self.ss_left_value)):
+            self.span_selector_changed()
 
     def _ss_right_value_changed(self, old, new):
-        self.span_selector_changed()
+        if not (np.isnan(self.ss_right_value) or np.isnan(self.ss_left_value)):
+            self.span_selector_changed()
 
     def create_background_line(self):
         self.bg_line = drawing.spectrum.SpectrumLine()
@@ -231,8 +235,7 @@ class SpikesRemoval(SpanSelectorInSpectrum):
                                 "connect the reconstructed data")
     interpolator = None
     default_spike_width = t.Int(5,
-                                desc="the width over which to do the "
-                                     "interpolation\n"
+                                desc="the width over which to do the interpolation\n"
                                      "when removing a spike (this can be "
                                      "adjusted for each\nspike by clicking "
                                      "and dragging on the display during\n"
@@ -243,6 +246,27 @@ class SpikesRemoval(SpanSelectorInSpectrum):
                             "of the spectrum. The noise properties defined\n"
                             "in the Signal metadata are used if present,"
                             "otherwise\nshot noise is used as a default")
+
+    thisOKButton = tu.Action(name="OK",
+                             action="OK",
+                             tooltip="Close the spikes removal tool")
+
+    thisApplyButton = tu.Action(name="Remove spike",
+                                action="apply",
+                                tooltip="Remove the current spike by "
+                                       "interpolating\n"
+                                       "with the specified settings (and find\n"
+                                       "the next spike automatically)")
+    thisFindButton = tu.Action(name="Find next",
+                               action="find",
+                               tooltip="Find the next (in terms of navigation\n"
+                                      "dimensions) spike in the data.")
+
+    thisPreviousButton = tu.Action(name="Find previous",
+                                   action="back",
+                                   tooltip="Find the previous (in terms of "
+                                          "navigation\n"
+                                          "dimensions) spike in the data.")
     view = tu.View(tu.Group(
         tu.Group(
             tu.Item('click_to_show_instructions',
@@ -266,10 +290,10 @@ class SpikesRemoval(SpanSelectorInSpectrum):
             show_border=True,
             label='Advanced settings'),
     ),
-        buttons=[OurOKButton,
-                 OurPreviousButton,
-                 OurFindButton,
-                 OurApplyButton, ],
+        buttons=[thisOKButton,
+                 thisPreviousButton,
+                 thisFindButton,
+                 thisApplyButton, ],
         handler=SpikesRemovalHandler,
         title='Spikes removal tool',
         resizable=False,
@@ -446,10 +470,12 @@ class SpikesRemoval(SpanSelectorInSpectrum):
         self.span_selector_changed()
 
     def _ss_left_value_changed(self, old, new):
-        self.span_selector_changed()
+        if not (np.isnan(self.ss_right_value) or np.isnan(self.ss_left_value)):
+            self.span_selector_changed()
 
     def _ss_right_value_changed(self, old, new):
-        self.span_selector_changed()
+        if not (np.isnan(self.ss_right_value) or np.isnan(self.ss_left_value)):
+            self.span_selector_changed()
 
     def create_interpolation_line(self):
         self.interpolated_line = drawing.spectrum.SpectrumLine()
@@ -464,7 +490,7 @@ class SpikesRemoval(SpanSelectorInSpectrum):
 
     def get_interpolation_range(self):
         axis = self.signal.axes_manager.signal_axes[0]
-        if self.ss_left_value == self.ss_right_value:
+        if np.isnan(self.ss_left_value) or np.isnan(self.ss_right_value):
             left = self.argmax - self.default_spike_width
             right = self.argmax + self.default_spike_width
         else:
