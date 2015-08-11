@@ -31,7 +31,9 @@ from hyperspy.drawing import utils
 from hyperspy.gui.tools import ImageContrastEditor
 from hyperspy.misc import math_tools
 from hyperspy.misc import rgb_tools
-from hyperspy.misc.image_tools import contrast_stretching
+from hyperspy.misc.image_tools import (contrast_stretching,
+                                       MPL_DIVERGING_COLORMAPS,
+                                       centre_colormap_values)
 from hyperspy.drawing.figure import BlittedFigure
 from hyperspy.events import Events, Event
 
@@ -63,6 +65,10 @@ class ImagePlot(BlittedFigure):
         The percentage of pixels that are left out of the bounds.  For example,
         the low and high bounds of a value of 1 are the 0.5% and 99.5%
         percentiles. It must be in the [0, 100] range.
+    centre_colormap : {"auto", True, False}
+        If True the centre of the color scheme is set to zero. This is
+        specially useful when using diverging color schemes. If "auto"
+        (default), diverging color schemes are automatically centred.
 
     """
 
@@ -97,6 +103,7 @@ class ImagePlot(BlittedFigure):
         self._user_axes_ticks = None
         self._auto_axes_ticks = True
         self.no_nans = False
+        self.centre_colormap = "auto"
         self._use_cache = False
         self._cached_stack = None
 
@@ -312,6 +319,16 @@ class ImagePlot(BlittedFigure):
     def update(self, auto_contrast=None, axes_manager=None, **kwargs):
         if axes_manager is None:
             axes_manager = self.axes_manager
+        # Turn on centre_colormap if a diverging colormap is used.
+        if self.centre_colormap == "auto":
+            if "cmap" in kwargs:
+                cmap = kwargs["cmap"]
+            else:
+                cmap = plt.cm.get_cmap().name
+            if cmap in MPL_DIVERGING_COLORMAPS:
+                self.centre_colormap = True
+            else:
+                self.centre_colormap = False
         if self.cache_stack:
             idx = np.ravel_multi_index(
                 axes_manager.indices,
@@ -360,9 +377,13 @@ class ImagePlot(BlittedFigure):
         self._update_text()
         if self.no_nans:
             data = np.nan_to_num(data)
+        if self.centre_colormap:
+            vmin, vmax = centre_colormap_values(self.vmin, self.vmax)
+        else:
+            vmin, vmax = self.vmin, self.vmax
         if img:
             img.set_data(data)
-            img.norm.vmax, img.norm.vmin = self.vmax, self.vmin
+            img.norm.vmax, img.norm.vmin = vmax, vmin
             if redraw_colorbar is True:
                 img.autoscale()
                 print "redrawing solids"
@@ -378,8 +399,8 @@ class ImagePlot(BlittedFigure):
                 self.figure.canvas.draw()
         else:
             new_args = {'interpolation': 'nearest',
-                        'vmin': self.vmin,
-                        'vmax': self.vmax,
+                        'vmin': vmin,
+                        'vmax': vmax,
                         'extent': self._extent,
                         'aspect': self._aspect,
                         'animated': True}
