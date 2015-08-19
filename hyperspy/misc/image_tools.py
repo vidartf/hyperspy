@@ -19,10 +19,7 @@
 import numpy as np
 import scipy as sp
 from scipy.fftpack import fftn, ifftn
-try:
-    from skimage.feature.register_translation import _upsampled_dft
-except ImportError:
-    _upsampled_dft = None
+from skimage.feature.register_translation import _upsampled_dft
 import matplotlib.pyplot as plt
 
 
@@ -177,7 +174,7 @@ def estimate_image_shift(ref, image, roi=None, sobel=True,
 
     # The following code is more or less copied from
     # skimage.feature.register_feature, to gain access to the maximum value:
-    if _upsampled_dft and sub_pixel_factor != 1:
+    if sub_pixel_factor != 1:
         # Initial shift estimate in upsampled grid
         shifts = np.round(shifts * sub_pixel_factor) / sub_pixel_factor
         upsampled_region_size = np.ceil(sub_pixel_factor * 1.5)
