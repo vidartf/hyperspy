@@ -89,7 +89,8 @@ class Signal2DTools(object):
                          hanning=True,
                          plot=False,
                          dtype='float',
-                         show_progressbar=None):
+                         show_progressbar=None,
+                         sub_pixel_factor=1):
         """Estimate the shifts in a image using phase correlation
 
         This method can only estimate the shift by comparing
@@ -136,6 +137,9 @@ class Signal2DTools(object):
         show_progressbar : None or bool
             If True, display a progress bar. If None the default is set in
             `preferences`.
+        sub_pixel_factor : float
+            Estimate shifts with a sub-pixel accuracy of 1/sub_pixel_factor parts
+            of a pixel. Default is 1, i.e. no sub-pixel accuracy.
 
         Returns
         -------
@@ -190,7 +194,8 @@ class Signal2DTools(object):
                 hanning=hanning,
                 normalize_corr=normalize_corr,
                 plot=plot,
-                dtype=dtype)
+                dtype=dtype,
+                sub_pixel_factor=sub_pixel_factor)
             np.fill_diagonal(pcarray['max_value'], max_value)
             pbar = progressbar(maxval=nrows * images_number,
                                disabled=not show_progressbar).start()
@@ -208,7 +213,8 @@ class Signal2DTools(object):
                 nshift, max_val = estimate_image_shift(
                     ref, im, roi=roi, sobel=sobel, medfilter=medfilter,
                     hanning=hanning, plot=plot,
-                    normalize_corr=normalize_corr, dtype=dtype)
+                    normalize_corr=normalize_corr, dtype=dtype,
+                    sub_pixel_factor=sub_pixel_factor)
                 if reference == 'cascade':
                     shift += nshift
                     ref = im.copy()
@@ -232,7 +238,8 @@ class Signal2DTools(object):
                             hanning=hanning,
                             normalize_corr=normalize_corr,
                             plot=plot,
-                            dtype=dtype)
+                            dtype=dtype,
+                            sub_pixel_factor=sub_pixel_factor)
 
                         pcarray[i1, i2] = max_value, nshift
                     del im2
@@ -274,7 +281,8 @@ class Signal2DTools(object):
                 reference='current',
                 dtype='float',
                 correlation_threshold=None,
-                chunk_size=30):
+                chunk_size=30,
+                sub_pixel_factor=1):
         """Align the images in place using user provided shifts or by
         estimating the shifts.
 
@@ -327,7 +335,8 @@ class Signal2DTools(object):
                 dtype=dtype,
                 correlation_threshold=correlation_threshold,
                 normalize_corr=normalize_corr,
-                chunk_size=chunk_size)
+                chunk_size=chunk_size,
+                sub_pixel_factor=sub_pixel_factor)
             return_shifts = True
         else:
             return_shifts = False

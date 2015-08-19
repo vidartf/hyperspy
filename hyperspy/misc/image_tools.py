@@ -19,6 +19,10 @@
 import numpy as np
 import scipy as sp
 from scipy.fftpack import fftn, ifftn
+try:
+    from skimage.feature.register_translation import _upsampled_dft
+except ImportError:
+    _upsampled_dft = None
 import matplotlib.pyplot as plt
 
 
@@ -78,19 +82,19 @@ def fft_correlation(in1, in2, normalize=False):
     size = s1 + s2 - 1
     # Use 2**n-sized FFT
     fsize = 2 ** np.ceil(np.log2(size))
-    IN1 = fftn(in1, fsize)
-    IN1 *= fftn(in2, fsize).conjugate()
+    fprod = fftn(in1, fsize)
+    fprod *= fftn(in2, fsize).conjugate()
     if normalize is True:
-        ret = ifftn(np.nan_to_num(IN1 / np.absolute(IN1))).real.copy()
+        ret = ifftn(np.nan_to_num(fprod / np.absolute(fprod))).real.copy()
     else:
-        ret = ifftn(IN1).real.copy()
-    del IN1
-    return ret
+        ret = ifftn(fprod).real.copy()
+    return ret, fprod
 
 
 def estimate_image_shift(ref, image, roi=None, sobel=True,
                          medfilter=True, hanning=True, plot=False,
-                         dtype='float', normalize_corr=False,):
+                         dtype='float', normalize_corr=False,
+                         sub_pixel_factor=1):
     """Estimate the shift in a image using phase correlation
 
     This method can only estimate the shift by comparing
@@ -102,6 +106,10 @@ def estimate_image_shift(ref, image, roi=None, sobel=True,
     Parameters
     ----------
 
+    ref : 2D numpy.ndarray
+        Reference image
+    image : 2D numpy.ndarray
+        Image to register
     roi : tuple of ints (top, bottom, left, right)
          Define the region of interest
     sobel : bool
@@ -113,16 +121,14 @@ def estimate_image_shift(ref, image, roi=None, sobel=True,
     plot : bool
         If True plots the images after applying the filters and
         the phase correlation
-    reference : \'current\' | \'cascade\'
-        If \'current\' (default) the image at the current
-        coordinates is taken as reference. If \'cascade\' each image
-        is aligned with the previous one.
     dtype : str or dtype
         Typecode or data-type in which the calculations must be
         performed.
-
     normalize_corr : bool
         If True use phase correlation instead of standard correlation
+    sub_pixel_factor : float
+        Estimate shifts with a sub-pixel accuracy of 1/sub_pixel_factor parts
+        of a pixel. Default is 1, i.e. no sub-pixel accuracy.
 
     Returns
     -------
@@ -154,9 +160,8 @@ def estimate_image_shift(ref, image, roi=None, sobel=True,
             im[:] = sp.signal.medfilt(im)
         if sobel is True:
             im[:] = sobel_filter(im)
-
-    phase_correlation = fft_correlation(ref, image,
-                                        normalize=normalize_corr)
+    phase_correlation, image_product = fft_correlation(
+        ref, image, normalize=normalize_corr)
 
     # Estimate the shift by getting the coordinates of the maximum
     argmax = np.unravel_index(np.argmax(phase_correlation),
@@ -168,6 +173,33 @@ def estimate_image_shift(ref, image, roi=None, sobel=True,
     shift1 = argmax[1] if argmax[1] < threshold[1] else \
         argmax[1] - phase_correlation.shape[1]
     max_val = phase_correlation.max()
+    shifts = np.array((shift0, shift1))
+
+    # The following code is more or less copied from
+    # skimage.feature.register_feature, to gain access to the maximum value:
+    if _upsampled_dft and sub_pixel_factor != 1:
+        # Initial shift estimate in upsampled grid
+        shifts = np.round(shifts * sub_pixel_factor) / sub_pixel_factor
+        upsampled_region_size = np.ceil(sub_pixel_factor * 1.5)
+        # Center of output array at dftshift + 1
+        dftshift = np.fix(upsampled_region_size / 2.0)
+        sub_pixel_factor = np.array(sub_pixel_factor, dtype=np.float64)
+        normalization = (image_product.size * sub_pixel_factor ** 2)
+        # Matrix multiply DFT around the current shift estimate
+        sample_region_offset = dftshift - shifts*sub_pixel_factor
+        cross_correlation = _upsampled_dft(image_product.conj(),
+                                           upsampled_region_size,
+                                           sub_pixel_factor,
+                                           sample_region_offset).conj()
+        cross_correlation /= normalization
+        # Locate maximum and map back to original pixel grid
+        maxima = np.array(np.unravel_index(
+                              np.argmax(np.abs(cross_correlation)),
+                              cross_correlation.shape),
+                          dtype=np.float64)
+        maxima -= dftshift
+        shifts = shifts + maxima / sub_pixel_factor
+        max_val = cross_correlation.max()
 
     # Plot on demand
     if plot is True:
@@ -184,7 +216,7 @@ def estimate_image_shift(ref, image, roi=None, sobel=True,
     del ref
     del image
 
-    return -np.array((shift0, shift1)), max_val
+    return -shifts, max_val
 
 
 def contrast_stretching(data, saturated_pixels):
