@@ -5016,11 +5016,11 @@ for name in (
 
 class DisconnectedIterator(object):
     """
-    Iterator class for iteration through a Signal's navigation axes, but 
-    working with a copy of the axes_manager so it doesn't trigger any 
-    AxesManager connections, which means the iteration is fast even in 
+    Iterator class for iteration through a Signal's navigation axes, but
+    working with a copy of the axes_manager so it doesn't trigger any
+    AxesManager connections, which means the iteration is fast even in
     interactive mode, and without modifying existing connections.
-    
+
     Signals of the same dimensions can be iterated in parallel by using the
     slices property for its __getitem__() function, either on the signal or on
     the AxesManager.
@@ -5028,12 +5028,12 @@ class DisconnectedIterator(object):
     def __init__(self, signal):
         self.signal = signal
         self.axes_manager = None
-        
+
     def __iter__(self):
         self.axes_manager = AxesManager(self.signal.axes_manager._get_axes_dicts())
         self.axes_manager.__iter__()
         return self
-    
+
     def next(self):
         try:
             self.axes_manager.next()
@@ -5043,12 +5043,12 @@ class DisconnectedIterator(object):
             self.axes_manager = None
             raise
         return self.signal[self.axes_manager._getitem_tuple]
-        
+
     @property
     def slices(self):
         return self.axes_manager._getitem_tuple
-    
-    
+
+
 class DataIterator(object):
     """
     Iterator class for fast iteration through a Signal's navigation axes,
@@ -5056,20 +5056,20 @@ class DataIterator(object):
     a) No signal copies are made, only a copy of the axes_manager.
     b) No connections to plots, so it is fast even in interactive mode, without
        modifying existing connections on the signal.
-       
+
     Signals of the same dimensions can be iterated in parallel by using the
-    slices property for its __getitem__() function, either on the signal or on 
+    slices property for its __getitem__() function, either on the signal or on
     the AxesManager.
     """
     def __init__(self, signal):
         self.signal = signal
         self.axes_manager = None
-        
+
     def __iter__(self):
         self.axes_manager = AxesManager(self.signal.axes_manager._get_axes_dicts())
         self.axes_manager.__iter__()
         return self
-    
+
     def next(self):
         try:
             self.axes_manager.next()
@@ -5079,10 +5079,10 @@ class DataIterator(object):
             self.axes_manager = None
             raise
         return self.signal.data[self.axes_manager._getitem_tuple]
-        
+
     def set_current(self, data):
         self.signal.data[self.axes_manager._getitem_tuple] = data
-        
+
     @property
     def slices(self):
         return self.axes_manager._getitem_tuple
