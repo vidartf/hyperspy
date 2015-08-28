@@ -30,7 +30,7 @@ def shift_image(im, shift, fill_value=np.nan):
     else:
         # Disable interpolation
         order = 0
-    sp.ndimage.shift(im, shift, output=im, cval=fill_value, order=order)
+    im[:] = sp.ndimage.shift(im, shift, cval=fill_value, order=order)
 
 
 def triu_indices_minus_diag(n):
