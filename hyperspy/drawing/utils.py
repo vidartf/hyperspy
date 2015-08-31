@@ -1041,6 +1041,55 @@ def plot_spectra(
     return ax
 
 
+def plot_vector_field(
+        signal,
+        axes_manager=None,
+        stepping=(1, 1),
+        fig=None,
+        ax=None,
+        color_z=True,
+        units='xy',
+        angles='xy',
+        scale=1,
+        **kwargs):
+    if ax is None:
+        if fig is None:
+            fig = plt.figure()
+        ax = fig.add_subplot(111)
+    if axes_manager is None:
+        axes_manager = signal.axes_manager
+    if axes_manager.navigation_dimension < 2:
+        raise ValueError("Need a navigation dimension of two or greater to "
+                         "plot a vector field")
+    if axes_manager.signal_dimension != 1:
+        raise ValueError("Need a signal dimension of one to plot a vector "
+                         "field")
+    elif axes_manager.signal_axes[0].size < 2:
+        raise ValueError("Need a signal size of two or more to plot a vector "
+                         "field")
+    if stepping is None:
+        stepping = (1, 1)
+    else:
+        try:
+            n = len(stepping)
+            if n == 1:
+                stepping = stepping * 2
+        except TypeError:
+            stepping = (stepping, stepping)
+    x = axes_manager.navigation_axes[0].axis[::stepping[0]]
+    y = axes_manager.navigation_axes[1].axis[::stepping[1]]
+    stepped = signal.inav[::stepping[0], ::stepping[1], ...]
+    Ex = stepped.isig[0].data
+    Ey = stepped.isig[1].data
+    kwargs.update(dict(units=units, angles=angles, scale=scale))
+    if color_z and axes_manager.signal_axes[0].size > 2:
+        Ez = stepped.isig[2].data
+        ax.quiver(x, y, Ex, Ey, Ez, **kwargs)
+    else:
+        ax.quiver(x, y, Ex, Ey, **kwargs)
+    ax.figure.canvas.draw()
+
+
 def animate_legend(figure='last'):
     """Animate the legend of a figure.
 
