@@ -1155,7 +1155,6 @@ class DraggableLabel(DraggablePatchBase):
             animated=self.blit)
 
 
-<<<<<<< HEAD
 class DraggableResizable2DLine(ResizableDraggablePatchBase):
 
     """A free-form line on a 2D plot. Enables dragging and moving the end
@@ -1534,10 +1533,7 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
         self.coordinates = trans.inverted().transform(c + np.rot90(w2))
 
 
-class Scale_Bar():
-=======
 class Scale_Bar:
->>>>>>> master
 
     def __init__(self, ax, units, pixel_size=None, color='white',
                  position=None, max_size_ratio=0.25, lw=2, length=None,
@@ -1814,7 +1810,6 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         # The tolerance in points to pick the rectangle sizes
         self.tolerance = 1
         self.on_move_cid = None
-<<<<<<< HEAD
         self._range = None
         self.step_ax = None
         self.events = Events()
@@ -1822,9 +1817,6 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         self.events.moved = Event()
         self.events.resized = Event()
         self.can_switch = False
-=======
-        self.range = None
->>>>>>> master
 
     def dummy(self, *args, **kwargs):
         pass
