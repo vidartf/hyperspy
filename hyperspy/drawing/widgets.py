@@ -585,7 +585,7 @@ class DraggableSquare(Patch2DBase):
         super(DraggableSquare, self).__init__(axes_manager)
 
     def _onmousemove(self, event):
-        'on mouse motion move the patch if picked'
+        """on mouse motion move the patch if picked"""
         if self.picked is True and event.inaxes:
             ix = self.axes[0].value2index(event.xdata)
             iy = self.axes[1].value2index(event.ydata)
