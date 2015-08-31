@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2011 The HyperSpy developers
+# Copyright 2007-2015 The HyperSpy developers
 #
 # This file is part of  HyperSpy.
 #
@@ -362,7 +362,7 @@ class DraggablePatchBase(InteractivePatchBase):
         self._update_patch_position()
 
     def button_release(self, event):
-        'whenever a mouse button is released'
+        """whenever a mouse button is released"""
         if event.button != 1:
             return
         if self.picked is True:
@@ -583,7 +583,7 @@ class DraggableSquare(Patch2DBase):
         super(DraggableSquare, self).__init__(axes_manager)
 
     def _onmousemove(self, event):
-        'on mouse motion move the patch if picked'
+        """on mouse motion move the patch if picked"""
         if self.picked is True and event.inaxes:
             ix = self.axes[0].value2index(event.xdata)
             iy = self.axes[1].value2index(event.ydata)
@@ -1093,7 +1093,7 @@ class DraggableHorizontalLine(DraggablePatchBase):
             picker=5)
 
     def _onmousemove(self, event):
-        'on mouse motion draw the cursor if picked'
+        """on mouse motion draw the cursor if picked"""
         if self.picked is True and event.inaxes:
             self.position = (self.axes[0].value2index(event.ydata),)
 
@@ -1115,7 +1115,7 @@ class DraggableVerticalLine(DraggablePatchBase):
                                 picker=5)
 
     def _onmousemove(self, event):
-        'on mouse motion draw the cursor if picked'
+        """on mouse motion draw the cursor if picked"""
         if self.picked is True and event.inaxes:
             self.position = (self.axes[0].value2index(event.xdata),)
 
@@ -1155,6 +1155,7 @@ class DraggableLabel(DraggablePatchBase):
             animated=self.blit)
 
 
+<<<<<<< HEAD
 class DraggableResizable2DLine(ResizableDraggablePatchBase):
 
     """A free-form line on a 2D plot. Enables dragging and moving the end
@@ -1534,6 +1535,9 @@ class DraggableResizable2DLine(ResizableDraggablePatchBase):
 
 
 class Scale_Bar():
+=======
+class Scale_Bar:
+>>>>>>> master
 
     def __init__(self, ax, units, pixel_size=None, color='white',
                  position=None, max_size_ratio=0.25, lw=2, length=None,
@@ -1661,7 +1665,7 @@ class Scale_Bar():
 
 
 def in_interval(number, interval):
-    if number >= interval[0] and number <= interval[1]:
+    if interval[0] <= number <= interval[1]:
         return True
     else:
         return False
@@ -1810,6 +1814,7 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         # The tolerance in points to pick the rectangle sizes
         self.tolerance = 1
         self.on_move_cid = None
+<<<<<<< HEAD
         self._range = None
         self.step_ax = None
         self.events = Events()
@@ -1817,6 +1822,9 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         self.events.moved = Event()
         self.events.resized = Event()
         self.can_switch = False
+=======
+        self.range = None
+>>>>>>> master
 
     def dummy(self, *args, **kwargs):
         pass
@@ -1860,7 +1868,9 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         self.cids.append(
             self.canvas.mpl_connect('button_press_event', self.mm_on_press))
         self.cids.append(
-            self.canvas.mpl_connect('button_release_event', self.mm_on_release))
+            self.canvas.mpl_connect(
+                'button_release_event',
+                self.mm_on_release))
         self.cids.append(
             self.canvas.mpl_connect('draw_event', self.update_background))
         self.rect.set_visible(True)
@@ -1892,7 +1902,7 @@ class ModifiableSpanSelector(matplotlib.widgets.SpanSelector):
         self.set_initial()
 
     def mm_on_press(self, event):
-        if (self.ignore(event) and not self.buttonDown):
+        if self.ignore(event) and not self.buttonDown:
             return
         self.buttonDown = True
 
