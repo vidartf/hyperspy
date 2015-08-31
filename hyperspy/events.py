@@ -1,13 +1,12 @@
 import sys
 import inspect
 
-
 class EventsSuppressionContext(object):
 
     """Context manager for event suppression. When passed an Events class,
     it will suppress all the events in that container when activated by
     using it in a 'with' statement. The previous suppression state will be
-    restored when the 'with' block completes.
+    restored when the 'with' block completes, allowing for nested suppression.
     """
 
     def __init__(self, events):
@@ -18,17 +17,45 @@ class EventsSuppressionContext(object):
         self.old = {}
         try:
             for e in self.events.__dict__.itervalues():
-                self.old[e] = e.suppress
-                e.suppress = True
-        except e:
+                self.old[e] = e._suppress
+                e._suppress = True
+        except:
             self.__exit__(*sys.exc_info())
             raise
         return self
 
     def __exit__(self, type, value, tb):
         for e, oldval in self.old.iteritems():
-            e.suppress = oldval
-        # Never suppress events
+            e._suppress = oldval
+        # Never suppress exceptions
+
+
+class EventSuppressionContext(object):
+
+    """Context manager for event suppression. When passed an Event class,
+    it will suppress the event when activated by using it in a 'with'
+    statement. The previous suppression state will be restored when the 'with'
+    block completes, allowing for nested suppression.
+    """
+
+    def __init__(self, event):
+        self.event = event
+        self.old = None
+
+    def __enter__(self):
+        self.old = None
+        try:
+            self.old[self.event] = self.event._suppress
+            self.event._suppress = True
+        except:
+            self.__exit__(*sys.exc_info())
+            raise
+        return self
+
+    def __exit__(self, type, value, tb):
+        if self.old is not None:
+            self.event._suppress = self.old
+        # Never suppress exceptions
 
 
 class CallbackSuppressionContext(object):
@@ -79,7 +106,21 @@ class Event(object):
 
     def __init__(self):
         self._connected = {0: set()}
-        self.suppress = False
+        self._suppress = False
+
+    @property
+    def suppress(self):
+        """Use this property with a 'with' statement to temporarily suppress
+        all events in the container. When the 'with' vlock completes, the old
+        suppression values will be restored.
+
+        Example usage pattern:
+        with obj.events.myevent.suppress:
+            obj.val_a = a
+            obj.val_b = b
+        obj.events.myevent.trigger()
+        """
+        return EventSuppressionContext(self)
 
     def suppress_single(self, function):
         """Use the return value of this function with a 'with' statement to
