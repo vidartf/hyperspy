@@ -192,7 +192,7 @@ class Event(object):
         nothing. Otherwise it calls all the connected functions with the
         arguments as specified when connected.
         """
-        if not self.suppress:
+        if not self._suppress:
             # Loop on copy to deal with callbacks which change connections
             for nargs, c in self._connected.copy().iteritems():
                 if nargs is 'all':
