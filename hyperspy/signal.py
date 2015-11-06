@@ -133,7 +133,9 @@ class Signal2DTools(object):
             Apply a 2d hanning filter
         plot : bool
             If True plots the images after applying the filters and
-            the phase correlation
+            the phase correlation. If 'reuse', it will also plot the images,
+            but it will only use one figure, and continously update the images
+            in that figure as it progresses through the stack.
         dtype : str or dtype
             Typecode or data-type in which the calculations must be
             performed.
@@ -180,6 +182,9 @@ class Signal2DTools(object):
         shifts = []
         nrows = None
         images_number = self.axes_manager._max_index + 1
+        if plot == 'reuse':
+            # Reuse figure for plots
+            plot = plt.figure()
         if reference == 'stat':
             nrows = images_number if chunk_size is None else \
                 min(images_number, chunk_size)

@@ -199,15 +199,34 @@ def estimate_image_shift(ref, image, roi=None, sobel=True,
         max_val = cross_correlation.max()
 
     # Plot on demand
-    if plot is True:
-        f, axarr = plt.subplots(1, 3)
-        axarr[0].imshow(ref)
-        axarr[1].imshow(image)
-        axarr[2].imshow(phase_correlation)
-        axarr[0].set_title('Reference')
-        axarr[1].set_title('Image')
-        axarr[2].set_title('Phase correlation')
-        plt.show()
+    if plot is True or isinstance(plot, plt.Figure):
+        if isinstance(plot, plt.Figure):
+            f = plot
+            axarr = plot.axes
+            if len(axarr) < 3:
+                for i in xrange(3):
+                    f.add_subplot(3, 1, i)
+                axarr = plot.axes
+        else:
+            f, axarr = plt.subplots(1, 3)
+        full_plot = len(axarr[0].images) == 0
+        if full_plot:
+            axarr[0].set_title('Reference')
+            axarr[1].set_title('Image')
+            axarr[2].set_title('Phase correlation')
+            axarr[0].imshow(ref)
+            axarr[1].imshow(image)
+            d = (np.array(phase_correlation.shape) - 1) // 2
+            extent = [-d[1], d[1], -d[0], d[0]]
+            axarr[2].imshow(np.fft.fftshift(phase_correlation),
+                            cmap=plt.cm.jet, extent=extent)
+            plt.show()
+        else:
+            axarr[0].images[0].set_data(ref)
+            axarr[1].images[0].set_data(image)
+            axarr[2].images[0].set_data(np.fft.fftshift(phase_correlation))
+            # TODO: Renormalize images
+            f.canvas.draw()
     # Liberate the memory. It is specially necessary if it is a
     # memory map
     del ref
