@@ -39,6 +39,8 @@ writes = False
 
 
 def file_reader(filename, *args, **kwds):
+    # Format of data row:
+    # R0 R1 R2 X Y IQ CI Phase Index
     rawdata = np.loadtxt(filename, unpack=True)
     dx = rawdata[3, 1] - rawdata[3, 0]
     unique_Y = np.unique(rawdata[4, :])
