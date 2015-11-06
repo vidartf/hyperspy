@@ -504,10 +504,10 @@ class StackNavEventSource(object):
         self.stop()
 
     def start(self):
-        self.events.navigate_stack.suppress = False
+        self.events.navigate_stack._suppress = False
 
     def stop(self):
-        self.events.navigate_stack.suppress = True
+        self.events.navigate_stack._suppress = True
 
     def add_callback(self, func, *args, **kwargs):
         self.events.navigate_stack.connect(func)
