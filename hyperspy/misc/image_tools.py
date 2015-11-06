@@ -174,6 +174,10 @@ def estimate_image_shift(ref, image, roi=None, sobel=True,
         if isinstance(plot, plt.Figure):
             f = plot
             axarr = plot.axes
+            if len(axarr) < 3:
+                for i in xrange(3):
+                    f.add_subplot(3, 1, i)
+                axarr = plot.axes
         else:
             f, axarr = plt.subplots(1, 3)
         full_plot = len(axarr[0].images) == 0
