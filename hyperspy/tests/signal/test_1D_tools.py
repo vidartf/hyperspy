@@ -108,7 +108,7 @@ class TestAlignTools:
 
         # Check the numbers of NaNs to make sure expansion happened properly
         Nnan = self.ishifts.max() - self.ishifts.min()
-        Nnan_data = np.sum(1*np.isnan(s.data), axis=1)
+        Nnan_data = np.sum(np.isnan(s.data), axis=1)
         # Due to interpolation, the number of NaNs in the data might
         # be 2 higher (left and right side) than expected
         nt.assert_true(np.all(Nnan_data - Nnan <= 2))
@@ -224,7 +224,8 @@ class TestInterpolateInBetween:
         s.interpolate_in_between(8, 12, delta=0.31, kind='cubic')
         print s.data[8:12]
         np.testing.assert_allclose(
-            s.data[8:12], np.array([45.09388598, 104.16170809, 155.48258721, 170.33564422]))
+            s.data[8:12], np.array([45.09388598, 104.16170809,
+                                    155.48258721, 170.33564422]))
 
 
 class TestEstimatePeakWidth:
