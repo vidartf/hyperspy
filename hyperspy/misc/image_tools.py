@@ -206,7 +206,7 @@ def estimate_image_shift(ref, image, roi=None, sobel=True,
             axarr = plot.axes
             if len(axarr) < 3:
                 for i in xrange(3):
-                    f.add_subplot(3, 1, i)
+                    f.add_subplot(1, 3, i)
                 axarr = plot.axes
         else:
             f, axarr = plt.subplots(1, 3)
@@ -220,7 +220,7 @@ def estimate_image_shift(ref, image, roi=None, sobel=True,
             d = (np.array(phase_correlation.shape) - 1) // 2
             extent = [-d[1], d[1], -d[0], d[0]]
             axarr[2].imshow(np.fft.fftshift(phase_correlation),
-                            cmap=plt.cm.jet, extent=extent)
+                            extent=extent)
             plt.show()
         else:
             axarr[0].images[0].set_data(ref)
