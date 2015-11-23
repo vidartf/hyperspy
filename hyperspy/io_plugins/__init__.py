@@ -19,8 +19,9 @@
 
 from hyperspy import messages
 from hyperspy.io_plugins import (msa, digital_micrograph, fei, mrc,
-                                 ripple, tiff, ang, dens)
-io_plugins = [msa, digital_micrograph, fei, mrc, ripple, tiff, ang, dens]
+                                 ripple, tiff, blockfile, ang, dens)
+io_plugins = [msa, digital_micrograph, fei, mrc, ripple, tiff, blockfile,
+              ang, dens]
 try:
     from hyperspy.io_plugins import netcdf
     io_plugins.append(netcdf)
