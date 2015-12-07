@@ -153,7 +153,7 @@ def test_non_square():
         ).astype(np.uint8))
     try:
         with nt.assert_raises(ValueError):
-            signal.save(save_path)
+            signal.save(save_path, overwrite=True)
     finally:
         _remove_file(save_path)
 
@@ -194,7 +194,6 @@ def test_load_inplace():
     
 
 def test_write_fresh():
-    sig_reload = None
     signal = hs.signals.Image((255*np.random.rand(10, 3, 5, 5)
         ).astype(np.uint8))
     try:
@@ -218,24 +217,45 @@ def test_write_fresh():
         _remove_file(save_path)
 
 
+def test_write_data_line():
+    signal = hs.signals.Image((255*np.random.rand(3, 5, 5)
+        ).astype(np.uint8))
+    try:
+        signal.save(save_path, overwrite=True)
+        sig_reload = hs.load(save_path)
+        np.testing.assert_equal(signal.data, sig_reload.data)
+    finally:
+        _remove_file(save_path)
+
+
+def test_write_data_single():
+    signal = hs.signals.Image((255*np.random.rand(5, 5)
+        ).astype(np.uint8))
+    try:
+        signal.save(save_path, overwrite=True)
+        sig_reload = hs.load(save_path)
+        np.testing.assert_equal(signal.data, sig_reload.data)
+    finally:
+        _remove_file(save_path)
+
+
 def test_write_data_am_mismatch():
     signal = hs.signals.Image((255*np.random.rand(10, 3, 5, 5)
         ).astype(np.uint8))
     signal.axes_manager.navigation_axes[1].size = 4
     try:
         with nt.assert_raises(ValueError):
-            signal.save(save_path)
+            signal.save(save_path, overwrite=True)
     finally:
         _remove_file(save_path)
 
 
 def test_write_cutoff():
-    sig_reload = None
     signal = hs.signals.Image((255*np.random.rand(10, 3, 5, 5)
         ).astype(np.uint8))
     signal.axes_manager.navigation_axes[0].size = 20
     try:
-        signal.save(save_path)
+        signal.save(save_path, overwrite=True)
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             sig_reload = hs.load(save_path)
@@ -254,7 +274,6 @@ def test_write_cutoff():
 def test_crop_notes():
     note_len = 0x1000 - 0xF0
     note = 'test123' * 1000     # > note_len
-    sig_reload = None
     signal = hs.signals.Image((255*np.random.rand(2, 3, 2, 2)
         ).astype(np.uint8))
     signal.original_metadata.add_node('blockfile_header.Note') 

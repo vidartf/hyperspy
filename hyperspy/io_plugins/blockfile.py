@@ -39,8 +39,7 @@ file_extensions = ['blo', 'BLO']
 default_extension = 0
 
 # Writing capabilities:
-# writes = False
-writes = [(2, 2)]
+writes = [(2, 2), (2, 1), (2, 0)]
 magics = [0x0102]
 
 
@@ -62,7 +61,7 @@ def _to_serial_date(dt):
 mapping = {
     'blockfile_header.Beam_energy':
     ("Acquisition_instrument.TEM.beam_energy", lambda x: x * 1e-3),
-    'blockfile_header.Aquisiton_time':
+    'blockfile_header.Acquisition_time':
     ("General.time", _from_serial_date),
     'blockfile_header.Camera_length':
     ("Acquisition_instrument.TEM.camera_length", lambda x: x * 1e-4),
@@ -90,7 +89,7 @@ def get_header_dtype_list(endianess='<'):
             ('Beam_energy', end + 'u4'),        # [V]
             ('SDP', end + 'u2'),                # Pixel size [100 * ppcm]
             ('Camera_length', end + 'u4'),      # [10 * mm]
-            ('Aquisiton_time', end + 'f8'),     # [Serial date]
+            ('Acquisition_time', end + 'f8'),   # [Serial date]
         ] + [
             ('Centering_N%d' % i, 'f8') for i in xrange(8)
         ] + [
@@ -109,7 +108,10 @@ def get_default_header(endianess='<'):
     header['MAGIC'][0] = magics[0]
     header['Data_offset_1'][0] = 0x1000     # Always this value observed
     header['UNKNOWN1'][0] = 131141          # Very typical value (always?)
-    header['Aquisiton_time'][0] = _to_serial_date(datetime.now(tz.tzutc()))
+    header['Acquisition_time'][0] = _to_serial_date(
+        datetime.fromtimestamp(86400, tz.tzutc()))
+        # Default to UNIX epoch + 1 day
+        # Have to add 1 day, as dateutil's timezones dont work before epoch
     return header
 
 
@@ -121,9 +123,18 @@ def get_header_from_signal(signal, endianess='<'):
         note = signal.original_metadata['blockfile_header']['Note']
     else:
         note = ''
-    NX, NY = signal.axes_manager.navigation_shape
-    SX = signal.axes_manager.navigation_axes[0].scale
-    SY = signal.axes_manager.navigation_axes[0].scale
+    if signal.axes_manager.navigation_dimension == 2: 
+        NX, NY = signal.axes_manager.navigation_shape
+        SX = signal.axes_manager.navigation_axes[0].scale
+        SY = signal.axes_manager.navigation_axes[0].scale
+    elif signal.axes_manager.navigation_dimension == 1:
+        NX = signal.axes_manager.navigation_shape[0]
+        NY = 1
+        SX = signal.axes_manager.navigation_axes[0].scale
+        SY = SX
+    elif signal.axes_manager.navigation_dimension == 0:
+        NX = NY = SX = SY = 1
+            
     DP_SZ = signal.axes_manager.signal_shape
     if DP_SZ[0] != DP_SZ[1]:
         raise ValueError('Blockfiles require signal shape to be square!')
@@ -178,11 +189,10 @@ def file_reader(filename, endianess='<', load_to_memory=True, mmap_mode='c',
     # Get data:
 
     # A Virtual BF/DF is stored first
-#    offset1 = int(header['DATA_OFFSET_1'][0])
+#    offset1 = header['Data_offset_1']
 #    f.seek(offset1)
-#    data_pre = np.array(f.read(offset2 - offset1), dtype=endianess+'u1'
+#    data_pre = np.array(f.read(NX*NY), dtype=endianess+'u1'
 #        ).squeeze().reshape((NX, NY), order='C').T
-#    print len(data_pre)
 
     # Then comes actual blockfile
     offset2 = header['Data_offset_2']
@@ -207,25 +217,25 @@ def file_reader(filename, endianess='<', load_to_memory=True, mmap_mode='c',
     # Every frame is preceeded by a 6 byte sequence (AA 55, and then a 4 byte
     # integer specifying frame number)
     data = data[:, :, 6:]
-    data = data.reshape((NY, NX, DP_SZ, DP_SZ), order='C')
+    data = data.reshape((NY, NX, DP_SZ, DP_SZ), order='C').squeeze()
 
-    units = ['nm', 'cm', 'cm', 'nm']
-    names = ['x', 'dy', 'dx', 'y']
-    scales = [header['SX'], SDP, SDP, header['SY']]
+    units = ['nm', 'nm', 'cm', 'cm']
+    names = ['y', 'x', 'dy', 'dx']
+    scales = [header['SY'], header['SX'], SDP, SDP]
     metadata = {'General': {'original_filename': os.path.split(filename)[1]},
                 "Signal": {'signal_type': "diffraction",
                            'record_by': 'image', },
                 }
     # Create the axis objects for each axis
-    dim = 4
+    dim = data.ndim
     axes = [
         {
             'size': data.shape[i],
             'index_in_array': i,
-            'name': names[i + 3 - dim],
-            'scale': scales[i + 3 - dim],
+            'name': names[i],
+            'scale': scales[i],
             'offset': 0.0,
-            'units': units[i + 3 - dim], }
+            'units': units[i], }
         for i in xrange(dim)]
 
     dictionary = {'data': data,
@@ -241,7 +251,6 @@ def file_writer(filename, signal, **kwds):
     endianess = kwds.pop('endianess', '<')
     header, note = get_header_from_signal(signal, endianess=endianess)
     with open(filename, 'wb') as f:
-        # TODO. Use memmap
         # Write header
         header.tofile(f)
         # Write header note field:
