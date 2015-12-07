@@ -31,10 +31,9 @@ class TestEventsSuppression(EventsBase):
         self.events.c.connect(self.on_trigger)
 
     def test_simple_suppression(self):
-        self.events.a.suppress = True
-        self.trigger_check(self.events.a.trigger, False)
-        self.trigger_check(self.events.b.trigger, True)
-        self.events.a.suppress = False
+        with self.events.a.suppress:
+            self.trigger_check(self.events.a.trigger, False)
+            self.trigger_check(self.events.b.trigger, True)
 
         with self.events.suppress:
             self.trigger_check(self.events.a.trigger, False)
@@ -46,42 +45,36 @@ class TestEventsSuppression(EventsBase):
         self.trigger_check(self.events.c.trigger, True)
 
     def test_suppression_restore(self):
-        self.events.a.suppress = True
-        self.events.b.suppress = False
-        self.events.c.suppress = False
-
-        with self.events.suppress:
-            self.trigger_check(self.events.a.trigger, False)
-            self.trigger_check(self.events.b.trigger, False)
-            self.trigger_check(self.events.c.trigger, False)
-
-        self.trigger_check(self.events.a.trigger, False)
-        self.trigger_check(self.events.b.trigger, True)
-        self.trigger_check(self.events.c.trigger, True)
-
-    def test_suppresion_nesting(self):
-        self.events.a.suppress = True
-        self.events.b.suppress = False
-        self.events.c.suppress = False
-
-        with self.events.suppress:
-            self.events.c.suppress = False
-            self.trigger_check(self.events.a.trigger, False)
-            self.trigger_check(self.events.b.trigger, False)
-            self.trigger_check(self.events.c.trigger, True)
-
+        with self.events.a.suppress:
             with self.events.suppress:
                 self.trigger_check(self.events.a.trigger, False)
                 self.trigger_check(self.events.b.trigger, False)
                 self.trigger_check(self.events.c.trigger, False)
-
+                
             self.trigger_check(self.events.a.trigger, False)
-            self.trigger_check(self.events.b.trigger, False)
+            self.trigger_check(self.events.b.trigger, True)
             self.trigger_check(self.events.c.trigger, True)
 
-        self.trigger_check(self.events.a.trigger, False)
-        self.trigger_check(self.events.b.trigger, True)
-        self.trigger_check(self.events.c.trigger, True)
+    def test_suppresion_nesting(self):
+        with self.events.a.suppress:
+            with self.events.suppress:
+                self.events.c._suppress = False
+                self.trigger_check(self.events.a.trigger, False)
+                self.trigger_check(self.events.b.trigger, False)
+                self.trigger_check(self.events.c.trigger, True)
+                
+                with self.events.suppress:
+                    self.trigger_check(self.events.a.trigger, False)
+                    self.trigger_check(self.events.b.trigger, False)
+                    self.trigger_check(self.events.c.trigger, False)
+                    
+                self.trigger_check(self.events.a.trigger, False)
+                self.trigger_check(self.events.b.trigger, False)
+                self.trigger_check(self.events.c.trigger, True)
+            
+            self.trigger_check(self.events.a.trigger, False)
+            self.trigger_check(self.events.b.trigger, True)
+            self.trigger_check(self.events.c.trigger, True)
 
 
 class TestEventsSignatures(EventsBase):

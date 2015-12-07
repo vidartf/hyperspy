@@ -75,9 +75,9 @@ from hyperspy.misc.utils import underline
 from hyperspy.external.astroML.histtools import histogram
 from hyperspy.drawing.utils import animate_legend
 from hyperspy.misc.hspy_warnings import VisibleDeprecationWarning
-from hyperspy.misc.slicing import SpecialSlicers, FancySlicing
 from hyperspy.events import Events, Event
 from hyperspy.interactive import interactive
+from hyperspy.misc.slicing import SpecialSlicers, FancySlicing
 from hyperspy.misc.utils import slugify
 from datetime import datetime
 
