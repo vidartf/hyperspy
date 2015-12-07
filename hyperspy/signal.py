@@ -17,6 +17,7 @@
 # along with  HyperSpy.  If not, see <http://www.gnu.org/licenses/>.
 
 import copy
+import h5py
 import os.path
 import warnings
 import math
@@ -75,6 +76,186 @@ from hyperspy.external.astroML.histtools import histogram
 from hyperspy.drawing.utils import animate_legend
 from hyperspy.misc.hspy_warnings import VisibleDeprecationWarning
 from hyperspy.events import Events, Event
+from hyperspy.misc.slicing import SpecialSlicers, FancySlicing
+from hyperspy.misc.utils import slugify
+from datetime import datetime
+
+
+class ModelManager(object):
+
+    """Container for models
+    """
+
+    class ModelStub(object):
+
+        def __init__(self, mm, name):
+            self._name = name
+            self._mm = mm
+            self.restore = lambda: mm.restore(self._name)
+            self.remove = lambda: mm.remove(self._name)
+            self.pop = lambda: mm.pop(self._name)
+            self.restore.__doc__ = "Returns the stored model"
+            self.remove.__doc__ = "Removes the stored model"
+            self.pop.__doc__ = "Returns the stored model and removes it from storage"
+
+        def __repr__(self):
+            return repr(self._mm._models[self._name])
+
+    def __init__(self, signal, dictionary=None):
+        self._signal = signal
+        self._models = DictionaryTreeBrowser()
+        self._add_dictionary(dictionary)
+
+    def _add_dictionary(self, dictionary=None):
+        if dictionary is not None:
+            for k, v in dictionary.iteritems():
+                if k.startswith('_') or k in ['restore', 'remove']:
+                    raise KeyError("Can't add dictionary with key '%s'" % k)
+                k = slugify(k, True)
+                self._models.set_item(k, v)
+                setattr(self, k, self.ModelStub(self, k))
+
+    def _set_nice_description(self, node, names):
+        ans = {'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+               'dimensions': self._signal.axes_manager._get_dimension_str(),
+               }
+        node.add_dictionary(ans)
+        for n in names:
+            node.add_node('components.' + n)
+
+    def _save(self, name, dictionary):
+
+        from itertools import product
+        _abc = 'abcdefghijklmnopqrstuvwxyz'
+
+        def get_letter(models):
+            howmany = len(models)
+            if not howmany:
+                return 'a'
+            order = int(np.log(howmany) / np.log(26)) + 1
+            letters = [_abc, ] * order
+            for comb in product(*letters):
+                guess = "".join(comb)
+                if guess not in models.keys():
+                    return guess
+
+        if name is None:
+            name = get_letter(self._models)
+        else:
+            name = self._check_name(name)
+
+        if name in self._models:
+            self.remove(name)
+
+        self._models.add_node(name)
+        node = self._models.get_item(name)
+        names = [c['name'] for c in dictionary['components']]
+        self._set_nice_description(node, names)
+
+        node.set_item('_dict', dictionary)
+        setattr(self, name, self.ModelStub(self, name))
+
+    def store(self, model, name=None):
+        """If the given model was created from this signal, stores it
+
+        Parameters
+        ----------
+        model : model
+            the model to store in the signal
+        name : {string, None}
+            the name for the model to be stored with
+
+        See Also
+        --------
+        remove
+        restore
+        pop
+        """
+        if model.spectrum is self._signal:
+            self._save(name, model.as_dictionary())
+        else:
+            raise ValueError("The model is created from a different signal, you "
+                             "should store it there")
+
+    def _check_name(self, name, existing=False):
+        if not isinstance(name, basestring):
+            raise KeyError('Name has to be a string')
+        if name.startswith('_'):
+            raise KeyError('Name cannot start with "_" symbol')
+        if '.' in name:
+            raise KeyError('Name cannot contain dots (".")')
+        name = slugify(name, True)
+        if existing:
+            if name not in self._models:
+                raise KeyError(
+                    "Model named '%s' is not currently stored" %
+                    name)
+        return name
+
+    def remove(self, name):
+        """Removes the given model
+
+        Parameters
+        ----------
+        name : string
+            the name of the model to remove
+
+        See Also
+        --------
+        restore
+        store
+        pop
+        """
+        name = self._check_name(name, True)
+        delattr(self, name)
+        self._models.__delattr__(name)
+
+    def pop(self, name):
+        """Returns the restored model and removes it from storage
+
+        Parameters
+        ----------
+        name : string
+            the name of the model to restore and remove
+
+        See Also
+        --------
+        restore
+        store
+        remove
+        """
+        name = self._check_name(name, True)
+        model = self.restore(name)
+        self.remove(name)
+        return model
+
+    def restore(self, name):
+        """Returns the restored model
+
+        Parameters
+        ----------
+        name : string
+            the name of the model to restore
+
+        See Also
+        --------
+        remove
+        store
+        pop
+        """
+        name = self._check_name(name, True)
+        d = self._models.get_item(name + '._dict').as_dictionary()
+        return self._signal.create_model(dictionary=copy.deepcopy(d))
+
+    def __repr__(self):
+        return repr(self._models)
+
+    def __len__(self):
+        return len(self._models)
+
+    def __getitem__(self, name):
+        name = self._check_name(name, True)
+        return getattr(self, name)
 
 
 class Signal2DTools(object):
@@ -265,7 +446,7 @@ class Signal2DTools(object):
             del ref
         return shifts
 
-    def align2D(self, crop=True, fill_value=np.nan, shifts=None,
+    def align2D(self, crop=True, fill_value=np.nan, shifts=None, expand=False,
                 roi=None,
                 sobel=True,
                 medfilter=True,
@@ -294,6 +475,9 @@ class Signal2DTools(object):
         shifts : None or list of tuples
             If None the shifts are estimated using
             `estimate_shift2D`.
+        expand : bool
+            If True, the data will be expanded to fit all data after alignment.
+            Overrides `crop`.
 
         Returns
         -------
@@ -332,6 +516,38 @@ class Signal2DTools(object):
             return_shifts = True
         else:
             return_shifts = False
+
+        if expand:
+            # Expand to fit all valid data
+            left, right = (int(np.floor(shifts[:, 1].min())) if
+                           shifts[:, 1].min() < 0 else 0,
+                           int(np.ceil(shifts[:, 1].max())) if
+                           shifts[:, 1].max() > 0 else 0)
+            top, bottom = (int(np.floor(shifts[:, 0].min())) if
+                           shifts[:, 0].min() < 0 else 0,
+                           int(np.ceil(shifts[:, 0].max())) if
+                           shifts[:, 0].max() > 0 else 0)
+            xaxis = self.axes_manager.signal_axes[0]
+            yaxis = self.axes_manager.signal_axes[1]
+            padding = []
+            for i in xrange(self.data.ndim):
+                if i == xaxis.index_in_array:
+                    padding.append((right, -left))
+                elif i == yaxis.index_in_array:
+                    padding.append((bottom, -top))
+                else:
+                    padding.append((0, 0))
+            self.data = np.pad(self.data, padding, mode='constant',
+                               constant_values=(fill_value,))
+            if left < 0:
+                xaxis.offset += left * xaxis.scale
+            if np.any((left < 0, right > 0)):
+                xaxis.size += right - left
+            if top < 0:
+                yaxis.offset += top * yaxis.scale
+            if np.any((top < 0, bottom > 0)):
+                yaxis.size += bottom - top
+
         # Translate with sub-pixel precision if necesary
         for im, shift in zip(self._iterate_signal(),
                              shifts):
@@ -340,8 +556,8 @@ class Signal2DTools(object):
                             fill_value=fill_value)
                 del im
 
-        # Crop the image to the valid size
-        if crop is True:
+        if crop and not expand:
+            # Crop the image to the valid size
             shifts = -shifts
             bottom, top = (int(np.floor(shifts[:, 0].min())) if
                            shifts[:, 0].min() < 0 else None,
@@ -353,6 +569,7 @@ class Signal2DTools(object):
                            shifts[:, 1].max() > 0 else 0)
             self.crop_image(top, bottom, left, right)
             shifts = -shifts
+
         if return_shifts:
             return shifts
 
@@ -385,6 +602,7 @@ class Signal1DTools(object):
                 shift_array,
                 interpolation_method='linear',
                 crop=True,
+                expand=False,
                 fill_value=np.nan,
                 show_progressbar=None):
         """Shift the data in place over the signal axis by the amount specified
@@ -403,6 +621,9 @@ class Signal1DTools(object):
         crop : bool
             If True automatically crop the signal axis at both ends if
             needed.
+        expand : bool
+            If True, the data will be expanded to fit all data after alignment.
+            Overrides `crop`.
         fill_value : float
             If crop is False fill the data outside of the original
             interval with the given value where needed.
@@ -419,11 +640,37 @@ class Signal1DTools(object):
             show_progressbar = preferences.General.show_progressbar
         self._check_signal_dimension_equals_one()
         axis = self.axes_manager.signal_axes[0]
-        offset = axis.offset
-        original_axis = axis.axis.copy()
         pbar = progressbar(
             maxval=self.axes_manager.navigation_size,
             disabled=not show_progressbar)
+
+        # Figure out min/max shifts, and translate to shifts in index as well
+        minimum, maximum = np.nanmin(shift_array), np.nanmax(shift_array)
+        if minimum < 0:
+            ihigh = 1 + axis.value2index(
+                axis.high_value + minimum,
+                rounding=math.floor)
+        else:
+            ihigh = axis.high_index + 1
+        if maximum > 0:
+            ilow = axis.value2index(axis.offset + maximum,
+                                    rounding=math.ceil)
+        else:
+            ilow = axis.low_index
+        if expand:
+            padding = []
+            for i in xrange(self.data.ndim):
+                if i == axis.index_in_array:
+                    padding.append(
+                        (axis.high_index - ihigh + 1, ilow - axis.low_index))
+                else:
+                    padding.append((0, 0))
+            self.data = np.pad(self.data, padding, mode='constant',
+                               constant_values=(fill_value,))
+            axis.offset += minimum
+            axis.size += axis.high_index - ihigh + 1 + ilow - axis.low_index
+        offset = axis.offset
+        original_axis = axis.axis.copy()
         for i, (dat, shift) in enumerate(zip(
                 self._iterate_signal(),
                 shift_array.ravel(()))):
@@ -440,21 +687,10 @@ class Signal1DTools(object):
 
         axis.offset = offset
 
-        if crop is True:
-            minimum, maximum = np.nanmin(shift_array), np.nanmax(shift_array)
-            if minimum < 0:
-                iminimum = 1 + axis.value2index(
-                    axis.high_value + minimum,
-                    rounding=math.floor)
-                print iminimum
-                self.crop(axis.index_in_axes_manager,
-                          None,
-                          iminimum)
-            if maximum > 0:
-                imaximum = axis.value2index(offset + maximum,
-                                            rounding=math.ceil)
-                self.crop(axis.index_in_axes_manager,
-                          imaximum)
+        if crop and not expand:
+            self.crop(axis.index_in_axes_manager,
+                      ilow,
+                      ihigh)
 
     def interpolate_in_between(self, start, end, delta=3,
                                show_progressbar=None, **kwargs):
@@ -621,6 +857,7 @@ class Signal1DTools(object):
                 number_of_interpolation_points=5,
                 interpolation_method='linear',
                 crop=True,
+                expand=False,
                 fill_value=np.nan,
                 also_align=[],
                 mask=None,
@@ -661,6 +898,9 @@ class Signal1DTools(object):
         crop : bool
             If True automatically crop the signal axis at both ends if
             needed.
+        expand : bool
+            If True, the data will be expanded to fit all data after alignment.
+            Overrides `crop`.
         fill_value : float
             If crop is False fill the data outside of the original
             interval with the given value where needed.
@@ -707,6 +947,7 @@ class Signal1DTools(object):
                            interpolation_method=interpolation_method,
                            crop=crop,
                            fill_value=fill_value,
+                           expand=expand,
                            show_progressbar=show_progressbar)
 
     def integrate_in_range(self, signal_range='interactive'):
@@ -2514,7 +2755,22 @@ class MVATools(object):
         factors.plot(navigator=factors_navigator)
 
 
-class Signal(MVA,
+class SpecialSlicersSignal(SpecialSlicers):
+
+    def __setitem__(self, i, j):
+        """x.__setitem__(i, y) <==> x[i]=y
+        """
+        if isinstance(j, Signal):
+            j = j.data
+        array_slices = self.obj._get_array_slices(i, self.isNavigation)
+        self.obj.data[array_slices] = j
+
+    def __len__(self):
+        return self.obj.axes_manager.signal_shape[0]
+
+
+class Signal(FancySlicing,
+             MVA,
              MVATools,
              Signal1DTools,
              Signal2DTools,):
@@ -2522,6 +2778,9 @@ class Signal(MVA,
     _record_by = ""
     _signal_type = ""
     _signal_origin = ""
+    _additional_slicing_targets = [
+        "metadata.Signal.Noise_properties.variance",
+    ]
 
     def __init__(self, data, **kwds):
         """Create a Signal from a numpy array.
@@ -2546,8 +2805,8 @@ class Signal(MVA,
             imported from the original data file.
 
         """
-
         self._create_metadata()
+        self.models = ModelManager(self)
         self.learning_results = LearningResults()
         kwds['data'] = data
         self._load_dictionary(kwds)
@@ -2555,8 +2814,12 @@ class Signal(MVA,
         self.auto_replot = True
         self.inav = SpecialSlicers(self, True)
         self.isig = SpecialSlicers(self, False)
+        self.inav = SpecialSlicers(self, True)
+        self.isig = SpecialSlicers(self, False)
         self.events = Events()
         self.events.data_changed = Event()
+        self.inav = SpecialSlicersSignal(self, True)
+        self.isig = SpecialSlicersSignal(self, False)
 
     def _create_metadata(self):
         self.metadata = DictionaryTreeBrowser()
@@ -2801,12 +3064,15 @@ class Signal(MVA,
             self.data = None
             old_plot = self._plot
             self._plot = None
+            old_models = self.models._models
+            self.models._models = DictionaryTreeBrowser()
             ns = self.deepcopy()
             ns.data = np.atleast_1d(data)
             return ns
         finally:
             self.data = old_data
             self._plot = old_plot
+            self.models._models = old_models
 
     def _print_summary(self):
         string = "\n\tTitle: "
@@ -2822,6 +3088,17 @@ class Signal(MVA,
             string += "\n\tData type: "
             string += str(self.data.dtype)
         print string
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        if isinstance(value, h5py.Dataset):
+            self._data = value
+        else:
+            self._data = np.atleast_1d(np.asanyarray(value))
 
     def _load_dictionary(self, file_data_dict):
         """Load data from dictionary.
@@ -2851,7 +3128,9 @@ class Signal(MVA,
 
         """
 
-        self.data = np.atleast_1d(np.asanyarray(file_data_dict['data']))
+        self.data = file_data_dict['data']
+        if 'models' in file_data_dict:
+            self.models._add_dictionary(file_data_dict['models'])
         if 'axes' not in file_data_dict:
             file_data_dict['axes'] = self._get_undefined_axes_list()
         self.axes_manager = AxesManager(
@@ -4259,6 +4538,13 @@ class Signal(MVA,
         dc = type(self)(**self._to_dictionary())
         if dc.data is not None:
             dc.data = dc.data.copy()
+
+        # uncomment if we want to deepcopy models as well:
+
+        # dc.models._add_dictionary(
+        #     copy.deepcopy(
+        #         self.models._models.as_dictionary()))
+
         # The Signal subclasses might change the view on init
         # The following code just copies the original view
         for oaxis, caxis in zip(self.axes_manager._axes,
@@ -4799,8 +5085,14 @@ class Signal(MVA,
         if plot_marker:
             marker.plot()
 
-    def create_model(self):
+    def create_model(self, dictionary=None):
         """Create a model for the current signal
+
+        Parameters
+        __________
+        dictionary : {None, dict}, optional
+            A dictionary to be used to recreate a model. Usually generated using
+            :meth:`hyperspy.model.as_dictionary`
 
         Returns
         -------
@@ -4808,8 +5100,7 @@ class Signal(MVA,
 
         """
         from hyperspy.model import Model
-        return Model(self)
-
+        return Model(self, dictionary=dictionary)
 
 # Implement binary operators
 for name in (
@@ -4838,8 +5129,7 @@ for name in (
 ):
     exec(
         ("def %s(self, other):\n" % name) +
-        ("   return self._binary_operator_ruler(other, \'%s\')\n" %
-         name))
+        ("   return self._binary_operator_ruler(other, \'%s\')\n" % name))
     exec("%s.__doc__ = int.%s.__doc__" % (name, name))
     exec("setattr(Signal, \'%s\', %s)" % (name, name))
     # The following commented line enables the operators with swapped
@@ -4860,23 +5150,3 @@ for name in (
         ("   return self._unary_operator_ruler(\'%s\')" % name))
     exec("%s.__doc__ = int.%s.__doc__" % (name, name))
     exec("setattr(Signal, \'%s\', %s)" % (name, name))
-
-
-class SpecialSlicers:
-
-    def __init__(self, signal, isNavigation):
-        self.isNavigation = isNavigation
-        self.signal = signal
-
-    def __getitem__(self, slices):
-        return self.signal.__getitem__(slices, self.isNavigation)
-
-    def __setitem__(self, i, j):
-        """x.__setitem__(i, y) <==> x[i]=y
-        """
-        if isinstance(j, Signal):
-            j = j.data
-        self.signal.__getitem__(i, self.isNavigation).data[:] = j
-
-    def __len__(self):
-        return self.signal.axes_manager.signal_shape[0]
