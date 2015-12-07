@@ -45,7 +45,7 @@ class EventSuppressionContext(object):
     def __enter__(self):
         self.old = None
         try:
-            self.old[self.event] = self.event._suppress
+            self.old = self.event._suppress
             self.event._suppress = True
         except:
             self.__exit__(*sys.exc_info())
