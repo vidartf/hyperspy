@@ -124,6 +124,10 @@ def load(filenames=None,
         mapped file will be created in the given directory,
         otherwise the default directory is used.
 
+    load_to_memory: bool
+        for HDF5 files, if True (default) loads all data to memory. If False,
+        enables only loading the data upon request
+
     Returns
     -------
     Signal instance or list of signal instances
@@ -267,20 +271,25 @@ def load_with_reader(filename,
     objects = []
 
     for signal_dict in file_data_list:
-        if "Signal" not in signal_dict["metadata"]:
-            signal_dict["metadata"]["Signal"] = {}
-        if record_by is not None:
-            signal_dict['metadata']["Signal"]['record_by'] = record_by
-        if signal_type is not None:
-            signal_dict['metadata']["Signal"]['signal_type'] = signal_type
-        if signal_origin is not None:
-            signal_dict['metadata']["Signal"]['signal_origin'] = signal_origin
-        objects.append(dict2signal(signal_dict))
-        folder, filename = os.path.split(os.path.abspath(filename))
-        filename, extension = os.path.splitext(filename)
-        objects[-1].tmp_parameters.folder = folder
-        objects[-1].tmp_parameters.filename = filename
-        objects[-1].tmp_parameters.extension = extension.replace('.', '')
+        if 'metadata' in signal_dict:
+            if "Signal" not in signal_dict["metadata"]:
+                signal_dict["metadata"]["Signal"] = {}
+            if record_by is not None:
+                signal_dict['metadata']["Signal"]['record_by'] = record_by
+            if signal_type is not None:
+                signal_dict['metadata']["Signal"]['signal_type'] = signal_type
+            if signal_origin is not None:
+                signal_dict['metadata']["Signal"][
+                    'signal_origin'] = signal_origin
+            objects.append(dict2signal(signal_dict))
+            folder, filename = os.path.split(os.path.abspath(filename))
+            filename, extension = os.path.splitext(filename)
+            objects[-1].tmp_parameters.folder = folder
+            objects[-1].tmp_parameters.filename = filename
+            objects[-1].tmp_parameters.extension = extension.replace('.', '')
+        else:
+            # it's a standalone model
+            continue
 
     if len(objects) == 1:
         objects = objects[0]
@@ -353,7 +362,7 @@ def dict2signal(signal_dict):
         if "Signal" in mp and "signal_origin" in mp["Signal"]:
             signal_origin = mp["Signal"]['signal_origin']
     if (not record_by and 'data' in signal_dict and
-            signal_dict['data'].ndim < 2):
+            len(signal_dict['data'].shape) < 2):
         record_by = "spectrum"
 
     signal = assign_signal_subclass(record_by=record_by,
