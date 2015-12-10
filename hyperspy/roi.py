@@ -43,6 +43,11 @@ class BaseROI(t.HasTraits):
 
     coords = property(lambda s: s._get_coords(), lambda s, v: s._set_coords(v))
 
+    def _get_ndim(self):
+        return len(self.coords)
+
+    ndim = property(lambda s: s._get_ndim())
+
     def update(self):
         """Function responsible for updating anything that depends on the ROI.
         It should be called by implementors whenever the ROI changes.
@@ -60,8 +65,7 @@ class BaseROI(t.HasTraits):
         """
         if ranges is None:
             ranges = []
-            ndim = len(self.coords)
-            for i in xrange(ndim):
+            for i in xrange(self.ndim):
                 c = self.coords[i]
                 if len(c) == 1:
                     ranges.append((c[0],))
@@ -71,12 +75,24 @@ class BaseROI(t.HasTraits):
         for ax in axes_collecion:
             if ax in axes:
                 i = axes.index(ax)
-                ilow = ax.value2index(ranges[i][0])
+                try:
+                    ilow = ax.value2index(ranges[i][0])
+                except ValueError:
+                    if ranges[i][0] < ax.low_value:
+                        ilow = ax.low_index
+                    else:
+                        raise
                 if len(ranges[i]) == 1:
                     ihigh = 1 + ilow
                 else:
-                    ihigh = 1 + ax.value2index(ranges[i][1],
-                                               rounding=lambda x: round(x - 1))
+                    try:
+                        ihigh = 1 + ax.value2index(
+                            ranges[i][1], rounding=lambda x: round(x - 1))
+                    except ValueError:
+                        if ranges[i][0] < ax.high_value:
+                            ihigh = ax.high_index + 1
+                        else:
+                            raise
                 slices.append(slice(ilow, ihigh))
             else:
                 slices.append(slice(None))
@@ -145,7 +161,7 @@ class BaseROI(t.HasTraits):
         -------
         (tuple(<DataAxis>), matplotlib Axes)
         """
-        nd = len(self.coords)
+        nd = self.ndim
         if isinstance(axes, basestring) and (axes.startswith("nav") or
                                              axes.startswith("sig")):
             # Specifies space
@@ -315,29 +331,28 @@ class BaseInteractiveROI(BaseROI):
                                    signal=signal, out=out, **kwargs)
 
     def navigate(self, signal):
-        """Make a widget for this ROI and use it as a navigator for passed 
+        """Make a widget for this ROI and use it as a navigator for passed
         signal.
         """
         # Check valid plot and navdim >= roi dim
-        ndim = len(self.coords)
         if signal._plot is None or \
-                            signal.axes_manager.navigation_dimension < ndim:
-            raise ValueError("Cannot navigate this signal with %s" % \
+                signal.axes_manager.navigation_dimension < self.ndim:
+            raise ValueError("Cannot navigate this signal with %s" %
                              self.__class__.__name__, signal)
 
-        nav_axes = signal.axes_manager.navigation_axes[0:ndim+1]
+        nav_axes = signal.axes_manager.navigation_axes[0:self.ndim + 1]
 
         def nav_signal_function(axes_manager=None):
             if axes_manager is None:
                 axes_manager = signal.axes_manager
             nav_idx = list()
             for ax in nav_axes:
-                nav_idx.append(axes_manager._axes.index(ax)) 
+                nav_idx.append(axes_manager._axes.index(ax))
             nav_idx = tuple(nav_idx)
             slices = self._make_slices(axes_manager._axes, nav_axes)
             data = np.mean(signal.data.__getitem__(slices), nav_idx)
             return np.atleast_1d(data)
-        
+
         signal.signal_callback = nav_signal_function
         sp = signal._plot.signal_plot
         sp.update()
