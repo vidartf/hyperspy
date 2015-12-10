@@ -292,8 +292,7 @@ class DraggablePatchBase(InteractivePatchBase):
         if len(pos) != len(self.axes):
             raise ValueError()
         for i in xrange(len(pos)):
-            if not (
-                    self.axes[i].low_index <= pos[i] <= self.axes[i].high_index):
+            if not (self.axes[i].low_index <= pos[i] <= self.axes[i].high_index):
                 raise ValueError()
         return pos
 
@@ -1084,7 +1083,7 @@ class Draggable2DCircle(Patch2DBase):
 
     def __init__(self, axes_manager):
         super(Draggable2DCircle, self).__init__(axes_manager)
-        self.size_step = self.axes[0].scale
+        self.size_step = 0.5
 
     def _set_size(self, value):
         """Setter for the 'size' property. Calls _size_changed to handle size
@@ -1141,7 +1140,7 @@ class Draggable2DCircle(Patch2DBase):
             picker=True,)
 
     def get_size_in_axes(self):
-        return np.array(self._size)
+        return np.array(self.axes[0].scale * self._size)
 
     def _onmousemove(self, event):
         'on mouse motion move the patch if picked'

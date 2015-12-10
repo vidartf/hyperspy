@@ -1010,7 +1010,7 @@ class CircleROI(BaseInteractiveROI):
         without doing anything to events.
         """
         c = widget.coordinates
-        s = widget.size
+        s = widget.get_size_in_axes()
         self.coords = (c[0],), (c[1],), tuple(np.transpose(s).tolist())
 
     def _cx_changed(self, old, new):
@@ -1028,7 +1028,8 @@ class CircleROI(BaseInteractiveROI):
     def _apply_roi2widget(self, widget):
         widget.coordinates = np.array((self.cx, self.cy))
         inner = self.r_inner if self.r_inner != t.Undefined else 0.0
-        widget.size = np.array((self.r, inner))
+        widget.size = np.array((self.r/widget.axes[0].scale,
+                                inner/widget.axes[0].scale))
 
     def _get_widget_type(self, axes, signal):
         return widgets.Draggable2DCircle
