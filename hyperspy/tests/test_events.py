@@ -1,10 +1,32 @@
 import nose.tools as nt
 import hyperspy.events as he
+import sys
+from contextlib import contextmanager
+
+
+@contextmanager
+def nostderr():
+    savestderr = sys.stderr
+    savestdout = sys.stdout
+
+    class Devnull(object):
+        def write(self, _): pass
+
+        def flush(self): pass
+
+    sys.stderr = Devnull()
+    sys.stdout = Devnull()
+    try:
+        yield
+    finally:
+        sys.stderr = savestderr
+        sys.stdout = savestdout
 
 
 class EventsBase():
     def on_trigger(self, *args, **kwargs):
         self.triggered = True
+        self.trigger_args = args
 
     def on_trigger2(self, *args, **kwargs):
         self.triggered2 = True
@@ -18,6 +40,12 @@ class EventsBase():
         self.triggered2 = False
         trigger(*args)
         nt.assert_equal(self.triggered2, should_trigger)
+
+    def trigger_check_args(self, trigger, should_trigger, expected_args,
+                           *args):
+        self.trigger_args = None
+        self.trigger_check(trigger, should_trigger, *args)
+        nt.assert_equal(self.trigger_args, expected_args)
 
 
 class TestEventsSuppression(EventsBase):
@@ -233,3 +261,89 @@ class TestEventsSignatures(EventsBase):
     @nt.raises(TypeError)
     def test_type(self):
         self.events.a.connect('f_a')
+
+def _trig_d(obj):
+    obj.d = 'Ohmy'
+
+
+def _trig_a(obj):
+    obj.a = 1.57
+
+
+class TestTraitsEvents(EventsBase):
+
+    def setUp(self):
+        import traits.api as t
+
+        class dummy_simple(he.HasEventsTraits):
+            d = t.String('Tester')
+
+        class dummy(he.HasEventsTraits):
+            a = t.CFloat(5.)
+            b = t.CInt()
+            c = t.Instance(dummy_simple)
+
+            def __init__(self):
+                self.c = dummy_simple()
+
+        self.obj = dummy_simple()
+        self.adv = dummy()
+
+    def test_simple_0(self):
+        self.obj.events.d_changed.connect(self.on_trigger, 0)
+        self.trigger_check_args(_trig_d, True, tuple(), self.obj)
+        self.obj.events.d_changed.disconnect(self.on_trigger)
+        self.trigger_check(_trig_d, False, self.obj)
+
+    def test_simple_1(self):
+        self.obj.events.d_changed.connect(self.on_trigger, 1)
+        self.trigger_check_args(_trig_d, True, ('Ohmy',), self.obj)
+        self.obj.events.d_changed.disconnect(self.on_trigger)
+        self.trigger_check(_trig_d, False, self.obj)
+
+    def test_simple_2(self):
+        self.obj.events.d_changed.connect(self.on_trigger, 2)
+        self.trigger_check_args(_trig_d, True, ('d', 'Ohmy'), self.obj)
+        self.obj.events.d_changed.disconnect(self.on_trigger)
+        self.trigger_check(_trig_d, False, self.obj)
+
+    def test_simple_3(self):
+        self.obj.events.d_changed.connect(self.on_trigger, 3)
+        self.trigger_check_args(_trig_d, True, (self.obj, 'd', 'Ohmy'),
+                                self.obj)
+        self.obj.events.d_changed.disconnect(self.on_trigger)
+        self.trigger_check(_trig_d, False, self.obj)
+
+    def test_simple_4(self):
+        self.obj.events.d_changed.connect(self.on_trigger, 4)
+        self.trigger_check_args(_trig_d, True,
+                                (self.obj, 'd', 'Tester', 'Ohmy'), self.obj)
+        self.obj.events.d_changed.disconnect(self.on_trigger)
+        self.trigger_check(_trig_d, False, self.obj)
+
+    def test_simple_5(self):
+        self.obj.events.d_changed.connect(self.on_trigger, 5)
+        # Should fail, since we don't support 5 args
+        with nostderr():
+            self.trigger_check(_trig_d, False, self.obj)
+        self.obj.events.d_changed.disconnect(self.on_trigger)
+        self.trigger_check(_trig_d, False, self.obj)
+
+    def test_simple_all(self):
+        self.obj.events.d_changed.connect(self.on_trigger, 'all')
+        self.trigger_check_args(_trig_d, True,
+                                (self.obj, 'd', 'Tester', 'Ohmy'), self.obj)
+        self.obj.events.d_changed.disconnect(self.on_trigger)
+        self.trigger_check(_trig_d, False, self.obj)
+
+    def test_adv(self):
+        self.adv.events.a_changed.connect(self.on_trigger, 1)
+        self.trigger_check_args(_trig_a, True, (1.57,), self.adv)
+        self.adv.events.a_changed.disconnect(self.on_trigger)
+        self.trigger_check(_trig_a, False, self.adv)
+
+    def test_adv_sub(self):
+        self.adv.c.events.d_changed.connect(self.on_trigger, 1)
+        self.trigger_check_args(_trig_d, True, ('Ohmy',), self.adv.c)
+        self.adv.c.events.d_changed.disconnect(self.on_trigger)
+        self.trigger_check(_trig_d, False, self.adv.c)

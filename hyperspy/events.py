@@ -1,5 +1,6 @@
 import sys
 import inspect
+from traits.api import HasTraits, MetaHasTraits
 
 
 class EventsSuppressionContext(object):
@@ -224,3 +225,67 @@ class Event(object):
         dc = type(self)()
         memo[id(self)] = dc
         return dc
+
+
+class TraitEvent(Event):
+
+    def trigger(self, obj, name, old, new):
+        super(TraitEvent, self).trigger(obj, name, old, new)
+
+    @staticmethod
+    def _trigger_nargs(f, args, nargs):
+        """
+        Emulates traits resolution:
+            handler()
+            handler(new)
+            handler(name, new)
+            handler(object, name, new)
+            handler(object, name, old, new)
+        """
+        if nargs == 0:
+            return f()
+        elif nargs == 1:
+            return f(args[3])
+        elif nargs == 2:
+            return f(args[1], args[3])
+        elif nargs == 3:
+            return f(args[0], args[1], args[3])
+        elif nargs == 4:
+            return f(*args)
+
+
+traits_filter = ['trait_added', 'trait_modified', 'events']
+
+
+def _wrap_trait(collection, obj, name):
+    e = TraitEvent()
+    setattr(collection, name + "_changed", e)
+    obj.on_trait_change(e.trigger, name)
+
+
+def _init_wrap(self, *args, **kwargs):
+    if self._old_init is not None:
+        self._old_init(*args, **kwargs)
+
+    # Setup events container if missing
+    if not hasattr(self, 'events'):
+        self.events = Events()
+
+    # Wrap traits
+    if isinstance(self, HasTraits):
+        for t in self.traits().iterkeys():
+            if t in traits_filter:
+                continue
+            _wrap_trait(self.events, self, t)
+
+
+class MetaHasEventsTraits(MetaHasTraits):
+
+    def __new__(cls, name, bases, attrs):
+        attrs['_old_init'] = attrs.pop('__init__', None)
+        attrs['__init__'] = _init_wrap
+        return super(MetaHasEventsTraits, cls).__new__(cls, name, bases, attrs)
+
+
+class HasEventsTraits(HasTraits):
+    __metaclass__ = MetaHasEventsTraits
