@@ -135,6 +135,27 @@ class BaseROI(t.HasTraits):
         else:
             signal.__getitem__(slices, out=out)
 
+    def mean(self, signal, out=None, axes=None):
+        if axes is None and signal in self.signal_map:
+            axes = self.signal_map[signal][1]
+        else:
+            axes = self._parse_axes(axes, signal.axes_manager)
+
+        roi = self(signal, out=None, axes=axes)
+        ids = []
+        for ax in axes:
+            ids.append(signal.axes_manager._axes.index(ax))
+        # Reverse-sort so indices stay valid while collapsing
+        ids.sort(reverse=True)
+        for idx in ids:
+            roi = roi.mean(axis=idx + 3j)
+
+        if out is None:
+            return roi
+        else:
+            out.data = roi.data
+            out.events.data_changed.trigger()
+
     def _parse_axes(self, axes, axes_manager):
         """Utility function to parse the 'axes' argument to a tuple of
         DataAxis, and find the matplotlib Axes that contains it.
