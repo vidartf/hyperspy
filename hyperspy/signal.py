@@ -4012,44 +4012,42 @@ class Signal(FancySlicing,
                 name="Scalar",
                 navigate=False,)
 
+    def _get_iaxes(self, axis):
+        if axis == "navigation":
+            return sorted([ax.index_in_array
+                           for ax in self.axes_manager.navigation_axes])
+        elif axis == "signal":
+            return sorted([ax.index_in_array
+                           for ax in self.axes_manager.signal_axes])
+        else:
+            return [self.axes_manager[axis].index_in_array]
+
     def _apply_function_on_data_and_remove_axis(self, function, axis,
                                                 out=None):
-        if axis not in ("navigation", "signal"):
-            if out is None:
-                s = self._deepcopy_with_new_data(None)
-            else:
-                s = out
-            s.data = function(self.data,
-                              axis=self.axes_manager[axis].index_in_array)
-            if out is None:
-                s._remove_axis(axis)
-                return s
-            else:
-                out.events.data_changed.trigger()
-                return
-
-        if axis == "navigation":
-            if out is None:
+        if out is None:
+            if axis == "navigation":
                 s = self.get_current_signal(auto_filename=False,
                                             auto_title=False)
                 s.data = s.data.copy()  # Don't overwrite self.data
-            else:
-                s = out
-            iaxes = sorted([ax.index_in_array
-                            for ax in self.axes_manager.navigation_axes])
-        elif axis == "signal":
-            if out is None:
+            elif axis == "signal":
                 s = self._get_navigation_signal()
             else:
-                s = out
-            iaxes = sorted([ax.index_in_array
-                            for ax in self.axes_manager.signal_axes])
+                s = self._deepcopy_with_new_data(None)
+        else:
+            s = out
+
         data = self.data
+        iaxes = self._get_iaxes(axis)
         while iaxes:
-            data = function(data,
-                            axis=iaxes.pop())
-        s.data[:] = data
+            data = function(data, axis=iaxes.pop())
+        if axis not in ("navigation", "signal"):
+            s.data = data
+        else:
+            s.data[:] = data
         if out is None:
+            if axis not in ("navigation", "signal"):
+                s._remove_axis(axis)
+            print s
             return s
         else:
             out.events.data_changed.trigger()

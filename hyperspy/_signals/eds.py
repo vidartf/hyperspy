@@ -155,7 +155,7 @@ class EDSSpectrum(Spectrum):
                 xray_lines_not_in_range.append(xray_line)
         return xray_lines_in_range, xray_lines_not_in_range
 
-    def sum(self, axis):
+    def sum(self, axis="navigation", out=None):
         """Sum the data over the given axis.
 
         Parameters
@@ -186,8 +186,10 @@ class EDSSpectrum(Spectrum):
         else:
             mp = s.metadata.Acquisition_instrument.TEM
         if mp.has_item('Detector.EDS.live_time'):
-            mp.Detector.EDS.live_time = mp.Detector.EDS.live_time * \
-                self.axes_manager[axis].size
+            iaxes = self._get_iaxes(axis)
+            for ax in iaxes:
+                mp.Detector.EDS.live_time = mp.Detector.EDS.live_time * \
+                    self.axes_manager[ax].size
         return s
 
     def rebin(self, new_shape):
