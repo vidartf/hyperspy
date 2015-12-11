@@ -4024,30 +4024,13 @@ class Signal(FancySlicing,
 
     def _apply_function_on_data_and_remove_axis(self, function, axis,
                                                 out=None):
-        if out is None:
-            if axis == "navigation":
-                s = self.get_current_signal(auto_filename=False,
-                                            auto_title=False)
-                s.data = s.data.copy()  # Don't overwrite self.data
-            elif axis == "signal":
-                s = self._get_navigation_signal()
-            else:
-                s = self._deepcopy_with_new_data(None)
-        else:
-            s = out
-
-        data = self.data
+        s = out or self._deepcopy_with_new_data(self.data)
         iaxes = self._get_iaxes(axis)
-        while iaxes:
-            data = function(data, axis=iaxes.pop())
-        if axis not in ("navigation", "signal"):
-            s.data = data
-        else:
-            s.data[:] = data
+        for ax in reversed(iaxes):
+            s.data = function(s.data, axis=ax)
+            s._remove_axis(ax)
+
         if out is None:
-            if axis not in ("navigation", "signal"):
-                s._remove_axis(axis)
-            print s
             return s
         else:
             out.events.data_changed.trigger()
