@@ -867,3 +867,71 @@ class EDSModel(Model1D):
             from hyperspy import utils
             utils.plot.plot_signals(intensities, **kwargs)
         return intensities
+
+    def get_element_intensities(self, elements=None, plot_result=False,
+                                **kwargs):
+        """
+        Return the fitted X-ray intensity of the elements.
+
+        Return the area under the gaussians corresping to the X-ray lines
+        belonging to the elements. Only takes into account lines that have
+        been added to the model.
+
+        Parameters
+        ----------
+        elements: list of str or None
+            If None, take the elements stored in the `metadata` of the
+            spectrum. Alternatively, provide an iterable containing a list of
+            valid element symbols.
+        plot_result : bool
+            If True, plot the calculated element intensities. If the current
+            object is a single spectrum it prints the result instead.
+        kwargs
+            The extra keyword arguments for plotting. See
+            `utils.plot.plot_signals`
+
+        Returns
+        -------
+        intensities : list
+            A list containing the intensities as Signal subclasses.
+
+        Examples
+        --------
+        >>> m.multifit()
+        >>> m.get_element_intensities(["C", "Ta"])
+
+        See also
+        --------
+        get_lines_intensity()
+        """
+        if elements is None:
+            elements = self.spectrum.metadata.Sample.elements
+        # Try to use all available lines
+        xray_lines = self.spectrum._get_lines_from_elements(
+            elements, only_lines=None)
+        intensities = {}
+        for xray_line in xray_lines:
+            try:
+                self[xray_line]
+            except ValueError:
+                # Only use the lines that have been added to model
+                continue
+            element, line = utils_eds._get_element_and_line(xray_line)
+            img = self._get_single_line_intensity(xray_line)
+            if element in intensities:
+                intensities[element] += img
+            else:
+                img.metadata.General.title = (
+                    'Intensity of %s from %s' %
+                    (element, self.spectrum.metadata.General.title))
+                intensities[element] = img
+        maps = [intensities[el] for el in elements]
+        if plot_result:
+            if img.axes_manager.signal_dimension == 0:
+                for element, img in zip(elements, maps):
+                    print("%s : Intensity = %.2f" % (element, img.data))
+
+            else:
+                from hyperspy import utils
+                utils.plot.plot_signals(maps, **kwargs)
+        return maps

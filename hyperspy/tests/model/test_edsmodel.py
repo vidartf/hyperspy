@@ -149,3 +149,18 @@ class TestMaps:
         np.testing.assert_allclose([i.data for i in
                                    m.get_lines_intensity(xray_lines)],
                                    w, atol=10-4)
+
+    def test_element_intensity(self):
+        s = self.s
+        m = s.create_model()
+        m.fit()
+        w1 = np.array([0.3, 0.7])
+        w2 = np.array([0.5, 0.5])
+        w = np.zeros((4,) + self.mix.shape)
+        for x in xrange(self.mix.shape[0]):
+            for y in xrange(self.mix.shape[1]):
+                w[0:2, x, y] = w1 * self.mix[x, y]
+                w[2:4, x, y] = w2 * (1-self.mix[x, y])
+        np.testing.assert_allclose([i.data for i in
+                                   m.get_element_intensities()],
+                                   w, atol=10-4)
