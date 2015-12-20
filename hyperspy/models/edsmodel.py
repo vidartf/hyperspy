@@ -788,6 +788,21 @@ class EDSModel(Model1D):
             self.multifit(bounded=True, fitter='mpfit', **kwargs)
         fix(xray_lines=xray_lines)
 
+    def _get_single_line_intensity(self, xray_line):
+        element = utils_eds._get_element_and_line(xray_line)[0]
+        data_res = self[xray_line].A.map['values']
+        if self.axes_manager.navigation_dimension == 0:
+            data_res = data_res[0]
+        img = self.spectrum.isig[0:1].integrate1D(-1)
+        img.data = data_res
+        if img.axes_manager.navigation_dimension >= 2:
+            img = img.as_image([0, 1])
+        elif img.axes_manager.navigation_dimension == 1:
+            img.axes_manager.set_signal_dimension(1)
+        img.metadata.set_item("Sample.elements", ([element]))
+        img.metadata.set_item("Sample.xray_lines", ([xray_line]))
+        return img
+
     def get_lines_intensity(self,
                             xray_lines=None,
                             plot_result=False,
@@ -821,7 +836,6 @@ class EDSModel(Model1D):
         >>> m.multifit()
         >>> m.get_lines_intensity(["C_Ka", "Ta_Ma"])
         """
-        from hyperspy import utils
         intensities = []
         if xray_lines is None:
             xray_lines = [component.name for component in self.xray_lines]
@@ -835,30 +849,21 @@ class EDSModel(Model1D):
         for xray_line in xray_lines:
             element, line = utils_eds._get_element_and_line(xray_line)
             line_energy = self.spectrum._get_line_energy(xray_line)
-            data_res = self[xray_line].A.map['values']
-            if self.axes_manager.navigation_dimension == 0:
-                data_res = data_res[0]
-            img = self.spectrum.isig[0:1].integrate1D(-1)
-            img.data = data_res
+            img = self._get_single_line_intensity(xray_line)
             img.metadata.General.title = (
                 'Intensity of %s at %.2f %s from %s' %
                 (xray_line,
                  line_energy,
                  self.spectrum.axes_manager.signal_axes[0].units,
                  self.spectrum.metadata.General.title))
-            if img.axes_manager.navigation_dimension >= 2:
-                img = img.as_image([0, 1])
-            elif img.axes_manager.navigation_dimension == 1:
-                img.axes_manager.set_signal_dimension(1)
             if plot_result and img.axes_manager.signal_dimension == 0:
                 print("%s at %s %s : Intensity = %.2f"
                       % (xray_line,
                          line_energy,
                          self.spectrum.axes_manager.signal_axes[0].units,
                          img.data))
-            img.metadata.set_item("Sample.elements", ([element]))
-            img.metadata.set_item("Sample.xray_lines", ([xray_line]))
             intensities.append(img)
         if plot_result and img.axes_manager.signal_dimension != 0:
+            from hyperspy import utils
             utils.plot.plot_signals(intensities, **kwargs)
         return intensities
