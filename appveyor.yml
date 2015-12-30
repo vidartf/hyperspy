@@ -73,8 +73,6 @@ install:
   - "%CMD_IN_ENV% conda install -yq %TEST_DEPS%"
   - "%CMD_IN_ENV% conda install -yq %DEPS%"
   - ps: Add-AppveyorMessage "Installing hyperspy..."
-  - "mkdir %APPDATA%\\.hyperspy"
-  - "printf \"[General]\\ndefault_toolkit = None\" > %APPDATA%/.hyperspy/hyperspyrc"
   - "python setup.py install"
 
 build: false  # Not a C# project, build stuff at the test step instead.
