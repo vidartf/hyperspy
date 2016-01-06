@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2015 The HyperSpy developers
+# Copyright 2007-2016 The HyperSpy developers
 #
 # This file is part of  HyperSpy.
 #
@@ -171,7 +171,7 @@ class ModelManager(object):
         restore
         pop
         """
-        if model.spectrum is self._signal:
+        if model.signal is self._signal:
             self._save(name, model.as_dictionary())
         else:
             raise ValueError("The model is created from a different signal, you "
@@ -1190,8 +1190,8 @@ class Signal1DTools(object):
     def _remove_background_cli(
             self, signal_range, background_estimator, estimate_background=True,
             show_progressbar=None):
-        from hyperspy.model import Model
-        model = Model(self)
+        from hyperspy.models.model1D import Model1D
+        model = Model1D(self)
         model.append(background_estimator)
         if estimate_background:
             background_estimator.estimate_parameters(
@@ -3379,12 +3379,15 @@ class Signal(FancySlicing,
             - hdf5 for HDF5
             - rpl for Ripple (useful to export to Digital Micrograph)
             - msa for EMSA/MSA single spectrum saving.
+            - unf for SEMPER unf binary format.
+            - blo for Blockfile diffraction stack saving.
             - Many image formats such as png, tiff, jpeg...
 
         If no extension is provided the default file format as defined
         in the `preferences` is used.
         Please note that not all the formats supports saving datasets of
-        arbitrary dimensions, e.g. msa only supports 1D data.
+        arbitrary dimensions, e.g. msa only supports 1D data, and blockfiles
+        only support image stacks with a navigation dimension < 2.
 
         Each format accepts a different set of parameters. For details
         see the specific format documentation.
@@ -3399,8 +3402,8 @@ class Signal(FancySlicing,
         overwrite : None, bool
             If None, if the file exists it will query the user. If
             True(False) it (does not) overwrites the file if it exists.
-        extension : {None, 'hdf5', 'rpl', 'msa',common image extensions e.g.
-                    'tiff', 'png'}
+        extension : {None, 'hdf5', 'rpl', 'msa', 'unf', 'blo', common image
+                     extensions e.g. 'tiff', 'png'}
             The extension of the file that defines the file format.
             If None, the extension is taken from the first not None in the
             following list:
@@ -5084,23 +5087,6 @@ class Signal(FancySlicing,
             self._plot.navigator_plot.add_marker(marker)
         if plot_marker:
             marker.plot()
-
-    def create_model(self, dictionary=None):
-        """Create a model for the current signal
-
-        Parameters
-        __________
-        dictionary : {None, dict}, optional
-            A dictionary to be used to recreate a model. Usually generated using
-            :meth:`hyperspy.model.as_dictionary`
-
-        Returns
-        -------
-        A Model class
-
-        """
-        from hyperspy.model import Model
-        return Model(self, dictionary=dictionary)
 
 # Implement binary operators
 for name in (
