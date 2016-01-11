@@ -263,29 +263,16 @@ def _wrap_trait(collection, obj, name):
     obj.on_trait_change(e.trigger, name)
 
 
-def _init_wrap(self, *args, **kwargs):
-    if self._old_init is not None:
-        self._old_init(*args, **kwargs)
-
-    # Setup events container if missing
-    if not hasattr(self, 'events'):
-        self.events = Events()
-
-    # Wrap traits
-    if isinstance(self, HasTraits):
-        for t in self.traits().iterkeys():
-            if t in traits_filter:
-                continue
-            _wrap_trait(self.events, self, t)
-
-
-class MetaHasEventsTraits(MetaHasTraits):
-
-    def __new__(cls, name, bases, attrs):
-        attrs['_old_init'] = attrs.pop('__init__', None)
-        attrs['__init__'] = _init_wrap
-        return super(MetaHasEventsTraits, cls).__new__(cls, name, bases, attrs)
-
-
 class HasEventsTraits(HasTraits):
-    __metaclass__ = MetaHasEventsTraits
+    def __init__(self, *args, **kwargs):
+        super(HasEventsTraits, self).__init__(*args, **kwargs)
+        # Setup events container if missing
+        if not hasattr(self, 'events'):
+            self.events = Events()
+
+        # Wrap traits
+        if isinstance(self, HasTraits):
+            for t in self.traits().iterkeys():
+                if t in traits_filter:
+                    continue
+                _wrap_trait(self.events, self, t)

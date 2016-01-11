@@ -284,6 +284,7 @@ class TestTraitsEvents(EventsBase):
             c = t.Instance(dummy_simple)
 
             def __init__(self):
+                super(dummy, self).__init__()
                 self.c = dummy_simple()
 
         self.obj = dummy_simple()
