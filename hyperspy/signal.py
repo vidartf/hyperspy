@@ -4148,8 +4148,12 @@ class Signal(FancySlicing,
         (64,64,1023)
         """
         s = out or self._deepcopy_with_new_data(None)
-        s.data = np.diff(self.data, n=order,
-                         axis=self.axes_manager[axis].index_in_array)
+        data = np.diff(self.data, n=order,
+                       axis=self.axes_manager[axis].index_in_array)
+        if out is not None:
+            out.data[:] = data
+        else:
+            s.data = data
         axis2 = s.axes_manager[axis]
         new_offset = self.axes_manager[axis].offset + (order * axis2.scale / 2)
         axis2.offset = new_offset
@@ -4222,9 +4226,12 @@ class Signal(FancySlicing,
         """
         axis = self.axes_manager[axis]
         s = out or self._deepcopy_with_new_data(None)
-        s.data = sp.integrate.simps(y=self.data, x=axis.axis,
-                                    axis=axis.index_in_array)
-        if out is None:
+        data = sp.integrate.simps(y=self.data, x=axis.axis,
+                                  axis=axis.index_in_array)
+        if out is not None:
+            out.data[:] = data
+        else:
+            s.data = data
             s._remove_axis(axis.index_in_axes_manager)
             return s
     integrate_simpson.__doc__ %= (ONE_AXIS_PARAMETER, OUT_ARG)
@@ -4390,7 +4397,10 @@ class Signal(FancySlicing,
             hist_spec = signals.Spectrum(hist)
         else:
             hist_spec = out
-            hist_spec.data[:] = hist
+            if hist_spec.data.shape == hist.shape:
+                hist_spec.data[:] = hist
+            else:
+                hist_spec.data = hist
         if bins == 'blocks':
             hist_spec.axes_manager.signal_axes[0].axis = bin_edges[:-1]
             warnings.warn(
@@ -4400,7 +4410,7 @@ class Signal(FancySlicing,
         else:
             hist_spec.axes_manager[0].scale = bin_edges[1] - bin_edges[0]
             hist_spec.axes_manager[0].offset = bin_edges[0]
-
+            hist_spec.axes_manager[0].size = hist.shape[-1]
         hist_spec.axes_manager[0].name = 'value'
         hist_spec.metadata.General.title = (self.metadata.General.title +
                                             " histogram")
