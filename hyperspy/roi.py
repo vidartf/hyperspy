@@ -402,9 +402,9 @@ class BaseInteractiveROI(BaseROI):
             widget.set_mpl_ax(ax)
 
         # Connect widget changes to on_widget_change
-        widget.events.changed.connect(self._on_widget_change, 1)
+        widget.events.changed.connect(self._on_widget_change)
         # When widget closes, remove from internal list
-        widget.events.closed.connect(self._remove_widget, 1)
+        widget.events.closed.connect(self._remove_widget)
         self.widgets.add(widget)
         self.signal_map[signal] = (widget, axes)
         return widget
@@ -701,9 +701,6 @@ class CircleROI(BaseInteractiveROI):
 
     def _get_widget_type(self, axes, signal):
         return widgets.CircleWidget
-
-    def navigate(self, signal):
-        raise NotImplementedError("CircleROI does not support navigation.")
 
     def __call__(self, signal, out=None, axes=None):
         """Slice the signal according to the ROI, and return it.
