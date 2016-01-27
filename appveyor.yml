@@ -6,6 +6,7 @@ environment:
   global:
     TEST_DEPS: "nose wheel pip"
     NSIS_DIR: "%PROGRAMFILES(x86)%/NSIS"
+    FAIL_ON_EXTERNAL_DEPRECATION: 'False'
 
 
   matrix:
