@@ -3921,7 +3921,8 @@ class Signal(FancySlicing,
         data = self.data.reshape(new_shape).squeeze()
 
         if out:
-            function(data, axis=ar_axes[0], out=out.data)
+            out.data[:] = function(data, axis=ar_axes[0])
+            s.events.data_changed.trigger(self)
         else:
             s.data = function(data, axis=ar_axes[0])
             s._remove_axis([ax.index_in_axes_manager for ax in axes])
@@ -3946,7 +3947,6 @@ class Signal(FancySlicing,
         else:
             s.data = function(self.data, axis=ar_axes)
             s._remove_axis([ax.index_in_axes_manager for ax in axes])
-            s.events.data_changed.trigger(self)
             return s
 
     def sum(self, axis=None, out=None):
