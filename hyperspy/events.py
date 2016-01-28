@@ -119,11 +119,10 @@ class Events(object):
         """
         Allows iteration of all events in the container
         """
-        return self._events.values()
+        return self._events.values().__iter__()
 
     def __repr__(self):
-        text = "<hyperspy.events.Events: " + repr(self._events) + ">"
-        return text.encode('utf8')
+        return "<hyperspy.events.Events: " + repr(self._events) + ">"
 
 
 class Event(object):
@@ -209,7 +208,7 @@ class Event(object):
         new_f = locals()['trigger']
         # Replace the trigger function with the new one
         if defaults:
-            new_f.func_defaults = tuple(defaults)
+            new_f.__defaults__ = tuple(defaults)
         new_f = new_f.__get__(self, self.__class__)     # Bind method to self
         self.trigger = new_f
 
@@ -390,8 +389,7 @@ class Event(object):
         return dc
 
     def __repr__(self):
-        text = "<hyperspy.events.Event: " + repr(self.connected) + ">"
-        return text.encode('utf8')
+        return "<hyperspy.events.Event: " + repr(self.connected) + ">"
 
 
 class EventSupressor(object):

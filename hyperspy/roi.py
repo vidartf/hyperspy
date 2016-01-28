@@ -732,8 +732,8 @@ class CircleROI(BaseInteractiveROI):
 
         natax = signal.axes_manager._get_axes_in_natural_order()
         # Slice original data with a circumscribed rectangle
-        cx = self.cx + 0.5 * axes[0].scale
-        cy = self.cy + 0.5 * axes[1].scale
+        cx = self.cx + 0.5001 * axes[0].scale
+        cy = self.cy + 0.5001 * axes[1].scale
         ranges = [[cx - self.r, cx + self.r],
                   [cy - self.r, cy + self.r]]
         slices = self._make_slices(natax, axes, ranges)

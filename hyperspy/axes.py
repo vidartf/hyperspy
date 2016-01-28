@@ -300,6 +300,11 @@ class DataAxis(t.HasTraits):
         cp = self.copy()
         return cp
 
+    def __lt__(self, other):
+        return (
+            (self.name, self.scale, self.size, self.offset, self.units) <
+            (other.name, other.scale, other.size, other.offset, other.units))
+
     def update_value(self):
         # To prevent firing events before value checks, suppress events,
         # and only fire if final result is different

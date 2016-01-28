@@ -32,12 +32,12 @@ class CircleWidget(Widget2DBase, ResizersMixin):
     def __init__(self, axes_manager, **kwargs):
         super(CircleWidget, self).__init__(axes_manager, **kwargs)
         self.size_step = 1.0
-        self.size_snap_offset = 0.5
+        self.size_snap_offset = (0.5 + 1e-8)
 
     def _set_axes(self, axes):
         super(CircleWidget, self)._set_axes(axes)
         if self.axes:
-            self._size[0] = 0.5 * self.axes[0].scale
+            self._size[0] = (0.5 + 1e-8) * self.axes[0].scale
             if len(self.axes) > 1:
                 self._size[1] = 0
 
@@ -58,7 +58,7 @@ class CircleWidget(Widget2DBase, ResizersMixin):
         # Override so that r_inner can be 0
         value = np.minimum(value, [ax.size for ax in self.axes])
         # Changed from base:
-        min_sizes = np.array((0.5 * self.axes[0].scale, 0))
+        min_sizes = np.array(((0.5 + 1e-8) * self.axes[0].scale, 0))
         value = np.maximum(value, min_sizes)
         if self.snap_size:
             value = self._do_snap_size(value)
@@ -114,13 +114,13 @@ class CircleWidget(Widget2DBase, ResizersMixin):
         """Constrict the position within bounds.
         """
         value = (min(value[0], self.axes[0].high_value - self._size[0] +
-                     0.5 * self.axes[0].scale),
+                     (0.5 + 1e-8) * self.axes[0].scale),
                  min(value[1], self.axes[1].high_value - self._size[0] +
-                     0.5 * self.axes[1].scale))
+                     (0.5 + 1e-8) * self.axes[1].scale))
         value = (max(value[0], self.axes[0].low_value + self._size[0] -
-                     0.5 * self.axes[0].scale),
+                     (0.5 + 1e-8) * self.axes[0].scale),
                  max(value[1], self.axes[1].low_value + self._size[0] -
-                     0.5 * self.axes[1].scale))
+                     (0.5 + 1e-8) * self.axes[1].scale))
         return super(CircleWidget, self)._validate_pos(value)
 
     def get_size_in_indices(self):
