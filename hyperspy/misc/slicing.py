@@ -191,24 +191,30 @@ class FancySlicing(object):
         _obj = self._deepcopy_with_new_data(self.data[array_slices])
         if out is None:
             _obj = self._deepcopy_with_new_data(self.data[array_slices])
+            _will_remove = []
             for slice_, axis in zip(array_slices, _obj.axes_manager._axes):
                 if (isinstance(slice_, slice) or
                         len(self.axes_manager._axes) < 2):
                     axis._slice_me(slice_)
                 else:
-                    _obj._remove_axis(axis.index_in_axes_manager)
+                    _will_remove.append(axis.index_in_axes_manager)
+            if _will_remove:
+                _will_remove.sort(reverse=True)
+                for _i in _will_remove:
+                    _obj._remove_axis(_i)
         else:
             out.data = self.data[array_slices]
             _obj = out
-            for slice_, axis_src, axis_dst in zip(
-                    array_slices, self.axes_manager._axes,
-                    out.axes_manager._axes):
+            i = 0
+            for slice_, axis_src in zip(array_slices, self.axes_manager._axes):
                 axis_src = axis_src.copy()
                 if (isinstance(slice_, slice) or
                         len(self.axes_manager._axes) < 2):
                     axis_src._slice_me(slice_)
-                axis_dst.update_from(axis_src, attributes=(
-                    "scale", "offset", "size"))
+                    axis_dst = out.axes_manager._axes[i]
+                    i += 1
+                    axis_dst.update_from(axis_src, attributes=(
+                        "scale", "offset", "size"))
 
         if hasattr(self, "_additional_slicing_targets"):
             for ta in self._additional_slicing_targets:
