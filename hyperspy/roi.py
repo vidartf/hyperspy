@@ -81,10 +81,10 @@ class BaseROI(t.HasTraits):
         """
         raise NotImplementedError()
 
-    def _make_slices(self, axes_collecion, axes, ranges=None):
+    def _make_slices(self, axes_collection, axes, ranges=None):
         """
         Utility function to make a slice structure that will slice all the axes
-        in 'axes_collecion'. The axes in the `axes` argument will be sliced by
+        in 'axes_collection'. The axes in the `axes` argument will be sliced by
         the ROI, all other axes with 'slice(None)'. Alternatively, if 'ranges'
         is passed, `axes[i]` will be sliced with 'ranges[i]'.
         """
@@ -92,7 +92,7 @@ class BaseROI(t.HasTraits):
             # Use ROI to slice
             ranges = self._get_ranges()
         slices = []
-        for ax in axes_collecion:
+        for ax in axes_collection:
             if ax in axes:
                 i = axes.index(ax)
                 try:
