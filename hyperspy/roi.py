@@ -106,8 +106,7 @@ class BaseROI(t.HasTraits):
                     slices.append(ilow)
                 else:
                     try:
-                        ihigh = 1 + ax.value2index(
-                            ranges[i][1], rounding=lambda x: round(x - 1))
+                        ihigh = ax.value2index(ranges[i][1])
                     except ValueError:
                         if ranges[i][1] > ax.high_value:
                             ihigh = ax.high_index + 1
