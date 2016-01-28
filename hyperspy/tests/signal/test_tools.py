@@ -539,7 +539,7 @@ class TestOutArg:
         sr = s.mean(axis=('x', 'z',))
         np.testing.assert_array_equal(
             sr.data.shape, [ax.size for ax in s.axes_manager[('y', 'E')]])
-        print sr.data.tolist()
+        print(sr.data.tolist())
         ref = [[202.28571428571428, 203.28571428571428, 182.0,
                 197.66666666666666, 187.0, 177.8],
                [134.0, 190.0, 191.27272727272728, 170.14285714285714, 172.0,

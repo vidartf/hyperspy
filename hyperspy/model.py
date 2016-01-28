@@ -58,16 +58,16 @@ class ModelComponents(object):
         self._model = model
 
     def __repr__(self):
-        signature = u"%4s | %25s | %25s | %25s"
+        signature = "%4s | %25s | %25s | %25s"
         ans = signature % ('#',
                            'Attribute Name',
                            'Component Name',
                            'Component Type')
-        ans += u"\n"
+        ans += "\n"
         ans += signature % ('-' * 4, '-' * 25, '-' * 25, '-' * 25)
         if self._model:
             for i, c in enumerate(self._model):
-                ans += u"\n"
+                ans += "\n"
                 name_string = c.name
                 variable_name = slugify(name_string, valid_variable_name=True)
                 component_type = c._id_name

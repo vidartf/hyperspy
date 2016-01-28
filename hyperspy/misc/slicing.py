@@ -189,7 +189,6 @@ class FancySlicing(object):
     def _slicer(self, slices, isNavigation=None, out=None):
         array_slices = self._get_array_slices(slices, isNavigation)
         _obj = self._deepcopy_with_new_data(self.data[array_slices])
-        _will_remove = []
         if out is None:
             _obj = self._deepcopy_with_new_data(self.data[array_slices])
             for slice_, axis in zip(array_slices, _obj.axes_manager._axes):

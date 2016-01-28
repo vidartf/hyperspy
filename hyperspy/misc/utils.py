@@ -683,26 +683,26 @@ def ordinal(value):
     >>> for i in range(1,13):
     ...     ordinal(i)
     ...
-    u'1st'
-    u'2nd'
-    u'3rd'
-    u'4th'
-    u'5th'
-    u'6th'
-    u'7th'
-    u'8th'
-    u'9th'
-    u'10th'
-    u'11th'
-    u'12th'
+    '1st'
+    '2nd'
+    '3rd'
+    '4th'
+    '5th'
+    '6th'
+    '7th'
+    '8th'
+    '9th'
+    '10th'
+    '11th'
+    '12th'
 
     >>> for i in (100, '111', '112',1011):
     ...     ordinal(i)
     ...
-    u'100th'
-    u'111th'
-    u'112th'
-    u'1011th'
+    '100th'
+    '111th'
+    '112th'
+    '1011th'
 
     Notes
     -----
