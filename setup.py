@@ -17,7 +17,7 @@
 # along with  HyperSpy.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from distutils.core import setup
+from setuptools import setup
 
 import distutils.dir_util
 
@@ -145,6 +145,7 @@ with update_version_when_dev() as version:
                   'hyperspy.docstrings',
                   'hyperspy.drawing',
                   'hyperspy.drawing._markers',
+                  'hyperspy.drawing._widgets',
                   'hyperspy.learn',
                   'hyperspy._signals',
                   'hyperspy.gui',
