@@ -13,6 +13,25 @@ environment:
 
     # Pre-installed Python versions, which Appveyor may upgrade to
     # a later point release.
+    - PYTHON: "C:\\Miniconda3"
+      PYTHON_VERSION: "3.4.x"
+      PYTHON_MAJOR: 3
+      PYTHON_ARCH: "32"
+      CONDA_PY: "34"
+      CONDA_NPY: "19"
+      WP_URL: 'http://heanet.dl.sourceforge.net/project/winpython/WinPython_3.4/3.4.3.7/WinPython-32bit-3.4.3.7.exe'
+      WP_CRC: '8b3b111b911b9f0c2c3ec22f1f23ae07919ec59db63f87e1f12de132da073b4d'
+      DEPS: "numpy scipy matplotlib ipython h5py sympy scikit-learn dill mock"
+
+    - PYTHON: "C:\\Miniconda35-x64"
+      PYTHON_VERSION: "3.5.x"
+      PYTHON_MAJOR: 3
+      PYTHON_ARCH: "64"
+      CONDA_PY: "35"
+      CONDA_NPY: "19"
+      WP_URL: 'http://heanet.dl.sourceforge.net/project/winpython/WinPython_3.5/3.5.1.1/WinPython-64bit-3.5.1.1.exe'
+      WP_CRC: '82057650e7950e6562affc73fd711e9fae1e6b8829cd6d65527f5a79429241ac'
+      DEPS: "numpy scipy matplotlib ipython h5py sympy scikit-learn dill mock"
 
     - PYTHON: "C:\\Miniconda"
       PYTHON_VERSION: "2.7.x"
@@ -34,30 +53,10 @@ environment:
       WP_CRC: '35d13e00e4ffdccde150fd526acf3923a62c4b329ab85987dfeea4c2496eaae2'
       DEPS: "numpy scipy matplotlib traits traitsui ipython h5py sympy scikit-learn dill mock"
 
-    - PYTHON: "C:\\Miniconda3"
-      PYTHON_VERSION: "3.4.x"
-      PYTHON_MAJOR: 3
-      PYTHON_ARCH: "32"
-      CONDA_PY: "34"
-      CONDA_NPY: "19"
-      WP_URL: 'http://heanet.dl.sourceforge.net/project/winpython/WinPython_3.4/3.4.3.7/WinPython-32bit-3.4.3.7.exe'
-      WP_CRC: '8b3b111b911b9f0c2c3ec22f1f23ae07919ec59db63f87e1f12de132da073b4d'
-      DEPS: "numpy scipy matplotlib ipython h5py sympy scikit-learn dill mock"
-
-    - PYTHON: "C:\\Miniconda35-x64"
-      PYTHON_VERSION: "3.5.x"
-      PYTHON_MAJOR: 3
-      PYTHON_ARCH: "64"
-      CONDA_PY: "35"
-      CONDA_NPY: "19"
-      WP_URL: 'http://heanet.dl.sourceforge.net/project/winpython/WinPython_3.5/3.5.1.1/WinPython-64bit-3.5.1.1.exe'
-      WP_CRC: '82057650e7950e6562affc73fd711e9fae1e6b8829cd6d65527f5a79429241ac'
-      DEPS: "numpy scipy matplotlib ipython h5py sympy scikit-learn dill mock"
 
 matrix:
   allow_failures:
-    - PYTHON_VERSION: "3.4.x"
-    - PYTHON_VERSION: "3.5.x"
+    - PYTHON_VERSION: "2.7.x"
 
 cache:
   - '%PYTHON%\pkgs'
