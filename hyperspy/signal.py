@@ -79,6 +79,8 @@ from hyperspy.misc.slicing import SpecialSlicers, FancySlicing
 from hyperspy.misc.utils import slugify
 from hyperspy.docstrings.signal import (
     ONE_AXIS_PARAMETER, MANY_AXIS_PARAMETER, OUT_ARG)
+from hyperspy.events import Events, Event
+from hyperspy.interactive import interactive
 
 
 class ModelManager(object):
@@ -2818,6 +2820,21 @@ class Signal(FancySlicing,
         self.auto_replot = True
         self.inav = SpecialSlicersSignal(self, True)
         self.isig = SpecialSlicersSignal(self, False)
+        self.events = Events()
+        self.events.data_changed = Event("""
+            Event that triggers when the data has changed
+
+            The event trigger when the data is ready for consumption by any
+            process that depend on it as input. Plotted signals automatically
+            connect this Event to its `Signal.plot()`.
+
+            Note: The event only fires at certain specific times, not everytime
+            that the `Signal.data` array changes values.
+
+            Arguments:
+                signal: The signal that owns the data.
+            """, arguments=['signal'])
+        self.events.data_changed.connect(self.update_plot, [])
 
     def _create_metadata(self):
         self.metadata = DictionaryTreeBrowser()
@@ -3242,11 +3259,22 @@ class Signal(FancySlicing,
                 if self.axes_manager.signal_dimension == 0:
                     navigator = self.deepcopy()
                 else:
-                    navigator = self.sum(self.axes_manager.signal_axes)
+                    navigator = interactive(
+                        self.sum,
+                        self.events.data_changed,
+                        self.axes_manager.events.transformed,
+                        self.axes_manager.signal_axes)
                 if navigator.axes_manager.navigation_dimension == 1:
-                    navigator = navigator.as_spectrum(0)
+                    navigator = interactive(
+                        navigator.as_spectrum,
+                        navigator.events.data_changed,
+                        navigator.axes_manager.events.transformed, 0)
                 else:
-                    navigator = navigator.as_image((0, 1))
+                    navigator = interactive(
+                        navigator.as_image,
+                        navigator.events.data_changed,
+                        navigator.axes_manager.events.transformed,
+                        (0, 1))
             else:
                 navigator = None
         # Navigator properties
@@ -3351,6 +3379,14 @@ class Signal(FancySlicing,
         if self._plot is not None:
             if self._plot.is_active() is True:
                 self.plot()
+
+    def update_plot(self):
+        if self._plot is not None:
+            if self._plot.is_active() is True:
+                if self._plot.signal_plot is not None:
+                    self._plot.signal_plot.update()
+                if self._plot.navigator_plot is not None:
+                    self._plot.navigator_plot.update()
 
     @auto_replot
     def get_dimensions_from_data(self):
@@ -3888,7 +3924,8 @@ class Signal(FancySlicing,
         data = self.data.reshape(new_shape).squeeze()
 
         if out:
-            function(data, axis=ar_axes[0], out=out.data)
+            out.data[:] = function(data, axis=ar_axes[0])
+            s.events.data_changed.trigger(self)
         else:
             s.data = function(data, axis=ar_axes[0])
             s._remove_axis([ax.index_in_axes_manager for ax in axes])
@@ -3909,6 +3946,7 @@ class Signal(FancySlicing,
             return self._ma_workaround(s, function, axes, ar_axes, out)
         if out:
             function(self.data, axis=ar_axes, out=out.data)
+            s.events.data_changed.trigger(self)
         else:
             s.data = function(self.data, axis=ar_axes)
             s._remove_axis([ax.index_in_axes_manager for ax in axes])
@@ -4120,7 +4158,7 @@ class Signal(FancySlicing,
         axis %s
         order : int
             the order of the derivative
-                %s
+        %s
 
         See also
         --------

@@ -58,7 +58,7 @@ class SpectrumFigure(BlittedFigure):
         self.figure = utils.create_figure(
             window_title="Figure " + self.title if self.title
             else None)
-        utils.on_figure_window_close(self.figure, self.close)
+        utils.on_figure_window_close(self.figure, self._on_close)
         self.figure.canvas.mpl_connect('draw_event', self._on_draw)
 
     def create_axis(self):
@@ -119,7 +119,7 @@ class SpectrumFigure(BlittedFigure):
             marker.plot()
         plt.xlim(np.min(x_axis_lower_lims), np.max(x_axis_upper_lims))
         # To be discussed
-        self.axes_manager.connect(self.update)
+        self.axes_manager.events.indices_changed.connect(self.update, [])
         if hasattr(self.figure, 'tight_layout'):
             try:
                 self.figure.tight_layout()
@@ -128,16 +128,15 @@ class SpectrumFigure(BlittedFigure):
                 # complains
                 pass
 
-    def close(self):
+    def _on_close(self):
         for marker in self.ax_markers:
             marker.close()
         for line in self.ax_lines + self.right_ax_lines:
             line.close()
-        try:
-            plt.close(self.figure)
-        except:
-            pass
         self.figure = None
+
+    def close(self):
+        plt.close(self.figure)
 
     def update(self):
         for marker in self.ax_markers:
@@ -237,12 +236,10 @@ class SpectrumLine(object):
         elif value == 'line':
             lp['linestyle'] = '-'
             lp['marker'] = "None"
-            lp['markersize'] = None
             lp['drawstyle'] = "default"
         elif value == 'step':
             lp['drawstyle'] = 'steps-mid'
             lp['marker'] = "None"
-            lp['markersize'] = None
         else:
             raise ValueError(
                 "`type` must be one of "
@@ -290,7 +287,7 @@ class SpectrumLine(object):
         self.line, = self.ax.plot(self.axis, data,
                                   **self.line_properties)
         self.line.set_animated(True)
-        self.axes_manager.connect(self.update)
+        self.axes_manager.events.indices_changed.connect(self.update, [])
         if not self.axes_manager or self.axes_manager.navigation_size == 0:
             self.plot_indices = False
         if self.plot_indices is True:
@@ -341,7 +338,7 @@ class SpectrumLine(object):
             self.ax.lines.remove(self.line)
         if self.text and self.text in self.ax.texts:
             self.ax.texts.remove(self.text)
-        self.axes_manager.disconnect(self.update)
+        self.axes_manager.events.indices_changed.disconnect(self.update)
         if self.sf_lines and self in self.sf_lines:
             self.sf_lines.remove(self)
         try:
