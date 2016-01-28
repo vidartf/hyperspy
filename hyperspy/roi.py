@@ -194,7 +194,7 @@ class BaseROI(t.HasTraits):
         nd = self.ndim
         axes_out = []
         if isinstance(axes, (tuple, list)):
-            for i in xrange(nd):
+            for i in range(nd):
                 if isinstance(axes[i], DataAxis):
                     axes_out.append(axes[i])
                 else:
@@ -413,7 +413,7 @@ class BaseInteractiveROI(BaseROI):
         widget.events.closed.disconnect(self._remove_widget)
         widget.events.changed.disconnect(self._on_widget_change)
         widget.close()
-        for signal, w in self.signal_map.iteritems():
+        for signal, w in self.signal_map.items():
             if w == widget:
                 self.signal_map.pop(signal)
                 break
@@ -748,7 +748,7 @@ class CircleROI(BaseInteractiveROI):
             mask |= gr < self.r_inner**2
         tiles = []
         shape = []
-        for i in xrange(len(slices)):
+        for i in range(len(slices)):
             if i == natax.index(axes[0]):
                 tiles.append(1)
                 shape.append(mask.shape[0])
@@ -964,7 +964,7 @@ class Line2DROI(BaseInteractiveROI):
                              (np.product(orig_shape[2:]),))
             pixels = [nd.map_coordinates(img[..., i], perp_lines,
                                          order=order, mode=mode, cval=cval)
-                      for i in xrange(img.shape[2])]
+                      for i in range(img.shape[2])]
             i0 = min(axes[0].index_in_array, axes[1].index_in_array)
             pixels = np.transpose(np.asarray(pixels), (1, 2, 0))
             intensities = pixels.mean(axis=1)

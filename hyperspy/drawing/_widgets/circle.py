@@ -46,7 +46,7 @@ class CircleWidget(Widget2DBase, ResizersMixin):
         value = np.array(value) if value is not None else self._size
         snap_offset = self.size_snap_offset * self.axes[0].scale
         snap_spacing = self.axes[0].scale * self.size_step
-        for i in xrange(2):
+        for i in range(2):
             value[i] = (round((value[i] - snap_offset) / snap_spacing) *
                         snap_spacing + snap_offset)
         return value

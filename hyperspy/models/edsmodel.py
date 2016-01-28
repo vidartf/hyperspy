@@ -471,7 +471,7 @@ class EDSModel(Model1D):
         for i, xray_line in enumerate(xray_lines):
             component = self[xray_line]
             component.centre.value = ref[i]
-        print ("Scale changed from  %lf to %lf" % (scale_old, scale))
+        print("Scale changed from  %lf to %lf" % (scale_old, scale))
 
     def _twin_xray_lines_offset(self, xray_lines):
         """
@@ -520,7 +520,7 @@ class EDSModel(Model1D):
         offset_old = self.spectrum.axes_manager[-1].offset
         self.spectrum.axes_manager[-1].offset -= diff
         offset = self.spectrum.axes_manager[-1].offset
-        print ("Offset changed from  %lf to %lf" % (offset_old, offset))
+        print("Offset changed from  %lf to %lf" % (offset_old, offset))
         for i, xray_line in enumerate(xray_lines):
             component = self[xray_line]
             component.centre.value = ref[i]
@@ -588,7 +588,7 @@ class EDSModel(Model1D):
             component.A.free = True
             if component.A.value - bound * component.A.value <= 0:
                 component.A.bmin = 1e-10
-                # print 'negative twin!'
+                # print('negative twin!')
             else:
                 component.A.bmin = component.A.value - \
                     bound * component.A.value

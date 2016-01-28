@@ -43,12 +43,12 @@ class Events(object):
         old = {}
 
         try:
-            for e in self._events.itervalues():
+            for e in self._events.values():
                 old[e] = e._suppress
                 e._suppress = True
             yield
         finally:
-            for e, oldval in old.iteritems():
+            for e, oldval in old.items():
                 e._suppress = oldval
 
     def _update_doc(self):
@@ -57,7 +57,7 @@ class Events(object):
         """
         new_doc = self.__class__.__doc__
         new_doc += '\n\tEvents:\n\t-------\n'
-        for name, e in self._events.iteritems():
+        for name, e in self._events.items():
             edoc = inspect.getdoc(e) or ''
             doclines = edoc.splitlines()
             e_short = doclines[0] if len(doclines) > 0 else edoc
@@ -111,15 +111,15 @@ class Events(object):
         Makes sure tab-completion works in IPython etc.
         """
         d = dir(type(self))
-        d.extend(self.__dict__.iterkeys())
-        d.extend(self._events.iterkeys())
+        d.extend(self.__dict__.keys())
+        d.extend(self._events.keys())
         return sorted(set(d))
 
     def __iter__(self):
         """
         Allows iteration of all events in the container
         """
-        return self._events.itervalues()
+        return self._events.values()
 
     def __repr__(self):
         text = "<hyperspy.events.Events: " + repr(self._events) + ">"
@@ -206,7 +206,7 @@ class Event(object):
         gl.update(locals())
         gl.update({'f': orig_f})    # Make sure it keeps the original!
         exec(wrap_code, gl, locals())
-        new_f = trigger
+        new_f = locals()['trigger']
         # Replace the trigger function with the new one
         if defaults:
             new_f.func_defaults = tuple(defaults)
@@ -377,12 +377,12 @@ class Event(object):
         for function in self._connected_all.difference(
                 self._suppressed_callbacks):
             function(**kwargs)
-        for function, kwsl in self._connected_some.iteritems():
+        for function, kwsl in self._connected_some.items():
             if function not in self._suppressed_callbacks:
                 function(**{kw: kwargs.get(kw, None) for kw in kwsl})
-        for function, kwsd in self._connected_map.iteritems():
+        for function, kwsd in self._connected_map.items():
             if function not in self._suppressed_callbacks:
-                function(**{kwf: kwargs[kwt] for kwt, kwf in kwsd.iteritems()})
+                function(**{kwf: kwargs[kwt] for kwt, kwf in kwsd.items()})
 
     def __deepcopy__(self, memo):
         dc = type(self)()

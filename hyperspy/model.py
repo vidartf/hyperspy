@@ -865,7 +865,7 @@ class BaseModel(list):
                         bounds=self.free_parameters_boundaries,
                         approx_grad=approx_grad, **kwargs)[0]
                 else:
-                    print ("""
+                    print("""
                     The %s optimizer is not available.
 
                     Available optimizers:

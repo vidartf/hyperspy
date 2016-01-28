@@ -206,8 +206,8 @@ class EDSSpectrum(Spectrum):
         Examples
         --------
         >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
-        >>> print s
-        >>> print s.rebin([512])
+        >>> print(s)
+        >>> print(s.rebin([512]))
         <EDSSEMSpectrum, title: EDS SEM Spectrum, dimensions: (|1024)>
         <EDSSEMSpectrum, title: EDS SEM Spectrum, dimensions: (|512)>
 
@@ -245,9 +245,9 @@ class EDSSpectrum(Spectrum):
         Examples
         --------
         >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
-        >>> print s.metadata.Sample.elements
+        >>> print(s.metadata.Sample.elements)
         >>> s.set_elements(['Al'])
-        >>> print s.metadata.Sample.elements
+        >>> print(s.metadata.Sample.elements)
         ['Al' 'C' 'Cu' 'Mn' 'Zr']
         ['Al']
 
@@ -270,9 +270,9 @@ class EDSSpectrum(Spectrum):
         Examples
         --------
         >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
-        >>> print s.metadata.Sample.elements
+        >>> print(s.metadata.Sample.elements)
         >>> s.add_elements(['Ar'])
-        >>> print s.metadata.Sample.elements
+        >>> print(s.metadata.Sample.elements)
         ['Al' 'C' 'Cu' 'Mn' 'Zr']
         ['Al', 'Ar', 'C', 'Cu', 'Mn', 'Zr']
 
@@ -346,9 +346,9 @@ class EDSSpectrum(Spectrum):
         --------
         >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.add_lines()
-        >>> print s.metadata.Sample.xray_lines
+        >>> print(s.metadata.Sample.xray_lines)
         >>> s.set_lines(['Cu_Ka'])
-        >>> print s.metadata.Sample.xray_lines
+        >>> print(s.metadata.Sample.xray_lines)
         ['Al_Ka', 'C_Ka', 'Cu_La', 'Mn_La', 'Zr_La']
         ['Al_Ka', 'C_Ka', 'Cu_Ka', 'Mn_La', 'Zr_La']
 
@@ -399,20 +399,20 @@ class EDSSpectrum(Spectrum):
         --------
         >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.add_lines()
-        >>> print s.metadata.Sample.xray_lines
+        >>> print(s.metadata.Sample.xray_lines)
         ['Al_Ka', 'C_Ka', 'Cu_La', 'Mn_La', 'Zr_La']
 
         >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.set_microscope_parameters(beam_energy=30)
         >>> s.add_lines()
-        >>> print s.metadata.Sample.xray_lines
+        >>> print(s.metadata.Sample.xray_lines)
         ['Al_Ka', 'C_Ka', 'Cu_Ka', 'Mn_Ka', 'Zr_La']
 
         >>> s = hs.datasets.example_signals.EDS_SEM_Spectrum()
         >>> s.add_lines()
-        >>> print s.metadata.Sample.xray_lines
+        >>> print(s.metadata.Sample.xray_lines)
         >>> s.add_lines(['Cu_Ka'])
-        >>> print s.metadata.Sample.xray_lines
+        >>> print(s.metadata.Sample.xray_lines)
         ['Al_Ka', 'C_Ka', 'Cu_La', 'Mn_La', 'Zr_La']
         ['Al_Ka', 'C_Ka', 'Cu_Ka', 'Cu_La', 'Mn_La', 'Zr_La']
 

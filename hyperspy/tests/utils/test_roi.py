@@ -117,13 +117,13 @@ class TestROIs():
         n = int(round(40 / scale))
         nt.assert_equal(sr.axes_manager.navigation_shape, (n, n))
         # Check that mask is same for all images:
-        for i in xrange(n):
-            for j in xrange(n):
+        for i in range(n):
+            for j in range(n):
                 nt.assert_true(np.all(sr.data.mask[j, i, :] == True) or
                                np.all(sr.data.mask[j, i, :] == False))
         # Check that the correct elements has been masked out:
         mask = sr.data.mask[:, :, 0]
-        print mask   # To help debugging, this shows the shape of the mask
+        print(mask)   # To help debugging, this shows the shape of the mask
         np.testing.assert_array_equal(
             np.where(mask.flatten())[0],
             [0,  1,  6,  7,  8, 15, 48, 55, 56, 57, 62, 63])

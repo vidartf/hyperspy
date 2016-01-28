@@ -599,7 +599,7 @@ def swapelem(obj, i, j):
     E.g.
     >>> L = ['a', 'b', 'c']
     >>> spwapelem(L, 1, 2)
-    >>> print L
+    >>> print(L)
         ['a', 'c', 'b']
 
     """

@@ -618,7 +618,7 @@ class SemperFormat(object):
         return signal
 
     def print_info(self):
-        """Print important flag information of the :class:`.~SemperFormat` object.
+        """print important flag information of the :class:`.~SemperFormat` object.
 
         Parameters
         ----------
@@ -630,17 +630,17 @@ class SemperFormat(object):
 
         """
         self._log.debug('Calling print_info')
-        print ('\n------------------------------------------------------')
-        print (self.title)
-        print ('dimensions: x: {}, y: {}, z: {}'.format(*reversed(self.data.shape)))
-        print ('scaling:    x: {:.3g}, y: {:.3g}, z: {:.3g}'.format(*self.scales))
-        print ('offsets:    x: {:.3g}, y: {:.3g}, z: {:.3g}'.format(*self.offsets))
-        print ('units:      x: {}, y: {}, z: {}'.format(*self.units))
-        print ('data range:', (self.data.min(), self.data.max()), '\n')
-        print ('metadata:')
+        print('\n------------------------------------------------------')
+        print(self.title)
+        print('dimensions: x: {}, y: {}, z: {}'.format(*reversed(self.data.shape)))
+        print('scaling:    x: {:.3g}, y: {:.3g}, z: {:.3g}'.format(*self.scales))
+        print('offsets:    x: {:.3g}, y: {:.3g}, z: {:.3g}'.format(*self.offsets))
+        print('units:      x: {}, y: {}, z: {}'.format(*self.units))
+        print('data range:', (self.data.min(), self.data.max()), '\n')
+        print('metadata:')
         for k, v in self.metadata.items():
-            print ('    {}: {}'.format(k, v))
-        print ('------------------------------------------------------\n')
+            print('    {}: {}'.format(k, v))
+        print('------------------------------------------------------\n')
 
 
 def unpack_from_intbytes(fmt, byte_list):
