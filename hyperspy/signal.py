@@ -3942,7 +3942,7 @@ class Signal(FancySlicing,
 
         s = out or self._deepcopy_with_new_data(None)
 
-        if np.ma.is_masked(self.data):
+        if isinstance(ar_axes, tuple) and np.ma.is_masked(self.data):
             return self._ma_workaround(s, function, axes, ar_axes, out)
         if out:
             function(self.data, axis=ar_axes, out=out.data)
