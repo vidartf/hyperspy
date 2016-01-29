@@ -266,8 +266,6 @@ class Model1D(BaseModel):
             for parameter in component.parameters:
                 parameter.events.value_changed.connect(
                     self._model_line.update, [])
-        if self._plot_components is True:
-            self._connect_component_lines()
 
     def _disconnect_parameters2update_plot(self, components):
         if self._model_line is None:
@@ -277,8 +275,6 @@ class Model1D(BaseModel):
             for parameter in component.parameters:
                 parameter.events.value_changed.disconnect(
                     self._model_line.update)
-        if self._plot_components is True:
-            self._disconnect_component_lines()
 
     def update_plot(self, *args, **kwargs):
         """Update model plot.
