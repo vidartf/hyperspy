@@ -3928,7 +3928,7 @@ class Signal(FancySlicing,
                 function(data, axis=ar_axes[0], out=out.data,)
             else:
                 out.data[:] = function(data, axis=ar_axes[0],)
-			s.events.data_changed.trigger(self)
+                s.events.data_changed.trigger(self)
         else:
             s.data = function(data, axis=ar_axes[0])
             s._remove_axis([ax.index_in_axes_manager for ax in axes])
