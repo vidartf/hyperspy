@@ -71,6 +71,7 @@ class ImagePlot(BlittedFigure):
     """
 
     def __init__(self):
+        super(ImagePlot, self).__init__()
         self.data_function = None
         self.pixel_units = None
         self.plot_ticks = False
@@ -364,6 +365,9 @@ class ImagePlot(BlittedFigure):
         self.figure.canvas.draw()
         if self.axes_manager:
             self.axes_manager.events.indices_changed.connect(self.update, [])
+            self.events.closed.connect(
+                lambda: self.axes_manager.events.indices_changed.disconnect(
+                    self.update), [])
 
     def on_key_press(self, event):
         if event.key == 'h':
@@ -413,7 +417,9 @@ class ImagePlot(BlittedFigure):
     def _on_close(self):
         for marker in self.ax_markers:
             marker.close()
-        self.disconnect()
+        self.events.closed.trigger(obj=self)
+        for f in self.events.closed.connected:
+            self.events.closed.disconnect(f)
         self.figure = None
 
     def close(self):

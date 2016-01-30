@@ -320,11 +320,7 @@ class BaseModel(list):
                                          valid_variable_name=True), thing)
         if self._plot_active is True:
             self._connect_parameters2update_plot(components=[thing])
-        if self._plot_components:
-            self._plot_component(thing)
-        if self._adjust_position_all is not None:
-            self._make_position_adjuster(thing, self._adjust_position_all[0],
-                                         self._adjust_position_all[1])
+        self.update_plot()
 
     def extend(self, iterable):
         for object in iterable:
@@ -777,8 +773,8 @@ class BaseModel(list):
                 mydata = odr.RealData(self.axis.axis[np.where(
                     self.channel_switches)],
                     self.signal()[np.where(self.channel_switches)],
-                    sx=None,
-                    sy=(1 / weights if weights is not None else None))
+                                  sx=None,
+                                  sy=(1 / weights if weights is not None else None))
                 myodr = odr.ODR(mydata, modelo, beta0=self.p0[:])
                 myoutput = myodr.run()
                 result = myoutput.beta
@@ -967,29 +963,28 @@ class BaseModel(list):
                     "following fitters instead: mpfit, tnc, l_bfgs_b")
                 kwargs['bounded'] = False
         i = 0
-        self.axes_manager.events.indices_changed.disconnect(
-            self.fetch_stored_values)
-        if interactive_plot:
-            outer = dummy_context_manager
-            inner = self.suspend_update
-        else:
-            outer = self.suspend_update
-            inner = dummy_context_manager
-        with outer(update_on_resume=True):
-            for index in self.axes_manager:
-                with inner(update_on_resume=True):
-                    if mask is None or not mask[index[::-1]]:
-                        self.fetch_stored_values(only_fixed=fetch_only_fixed)
-                        self.fit(**kwargs)
-                        i += 1
-                        if maxval > 0:
-                            pbar.update(i)
-                    if autosave is True and i % autosave_every == 0:
-                        self.save_parameters2file(autosave_fn)
-            if maxval > 0:
-                pbar.finish()
-        self.axes_manager.events.indices_changed.connect(
-            self.fetch_stored_values, [])
+        with self.axes_manager.events.indices_changed.suppress_callback(
+                self.fetch_stored_values):
+            if interactive_plot:
+                outer = dummy_context_manager
+                inner = self.suspend_update
+            else:
+                outer = self.suspend_update
+                inner = dummy_context_manager
+            with outer(update_on_resume=True):
+                for index in self.axes_manager:
+                    with inner(update_on_resume=True):
+                        if mask is None or not mask[index[::-1]]:
+                            self.fetch_stored_values(
+                                only_fixed=fetch_only_fixed)
+                            self.fit(**kwargs)
+                            i += 1
+                            if maxval > 0:
+                                pbar.update(i)
+                        if autosave is True and i % autosave_every == 0:
+                            self.save_parameters2file(autosave_fn)
+                if maxval > 0:
+                    pbar.finish()
         if autosave is True:
             messages.information(
                 'Deleting the temporary file %s pixels' % (

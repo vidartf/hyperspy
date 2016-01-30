@@ -56,7 +56,7 @@ class MPL_HyperSpectrum_Explorer(MPL_HyperExplorer):
             if value is True:
                 self.pointer.set_mpl_ax(self.navigator_plot.ax)
             else:
-                self.pointer.disconnect(self.navigator_plot.ax)
+                self.pointer.disconnect()
 
     @property
     def right_pointer_on(self):
