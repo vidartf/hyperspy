@@ -41,6 +41,7 @@ class EDSSpectrum(Spectrum):
                   'set_signal_type(\'EDS_TEM\')  '
                   'or set_signal_type(\'EDS_SEM\')')
         self.metadata.Signal.binned = True
+        self._xray_markers = {}
 
     def _get_line_energy(self, Xray_line, FWHM_MnKa=None):
         """
@@ -946,7 +947,7 @@ class EDSSpectrum(Spectrum):
             for xray in xray_not_here:
                 print("Warning: %s is not in the data energy range." % xray)
             xray_lines = np.unique(xray_lines)
-            self._add_xray_lines_markers(xray_lines)
+            self.add_xray_lines_markers(xray_lines)
             if background_windows is not None:
                 self._add_background_windows_markers(background_windows)
             if integration_windows is not None:
@@ -978,7 +979,7 @@ class EDSSpectrum(Spectrum):
             line = markers.vertical_line(x=x, color=color, **kwargs)
             self.add_marker(line)
 
-    def _add_xray_lines_markers(self, xray_lines):
+    def add_xray_lines_markers(self, xray_lines):
         """
         Add marker on a spec.plot() with the name of the selected X-ray
         lines
@@ -1008,6 +1009,22 @@ class EDSSpectrum(Spectrum):
                 x=line_energy[i], y=intensity[i] * 1.1, text=string,
                 rotation=90)
             self.add_marker(text)
+            self._xray_markers[xray_lines[i]] = (line, text)
+
+    def remove_xray_lines_markers(self, xray_lines):
+        """
+        Remove marker previosuly added on a spec.plot() with the name of the
+        selected X-ray lines
+
+        Parameters
+        ----------
+        xray_lines: list of string
+            A valid list of X-ray lines to remove
+        """
+        for xray_line in xray_lines:
+            if xray_line in self._xray_markers:
+                for m in self._xray_markers[xray_line]:
+                    m.close()
 
     def _add_background_windows_markers(self,
                                         windows_position):
