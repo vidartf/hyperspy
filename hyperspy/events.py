@@ -1,8 +1,7 @@
 import inspect
-import warnings
 import collections
 from contextlib import contextmanager
-from functools import wraps
+from functools import wraps   # Used in exec statement
 import re
 
 
@@ -22,8 +21,8 @@ class Events(object):
     def suppress(self):
         """
         Use this function with a 'with' statement to temporarily suppress
-        all events in the container. When the 'with' lock completes, the old
-        suppression values will be restored.
+        all callbacks of all events in the container. When the 'with' lock
+        completes, the old suppression values will be restored.
 
         Example usage
         -------------
@@ -148,8 +147,8 @@ class Event(object):
             'This event has a docstring!'
             >>> e1 = Event()
             >>> e2 = Event(arguments=('arg1', ('arg2', None)))
-            >>> e1.trigger(12, 43, 'str', 4.3)  # Can trigger with whatever
-            >>> e2.trigger(11, 22, 3.4)
+            >>> e1.trigger(arg1=12, arg2=43, arg3='str', arg4=4.3)  # Can trigger with whatever
+            >>> e2.trigger(arg1=11, arg2=22, arg3=3.4)
             TypeError: trigger() takes at most 3 arguments (4 given)
         """
         self.__doc__ = doc
@@ -301,12 +300,13 @@ class Event(object):
         See also
         --------
         disconnect
+
         """
         if not callable(function):
             raise TypeError("Only callables can be registered")
         if function in self.connected:
-            raise ValueError("Function %s already connected to this event." %
-                             function)
+            raise ValueError("Function %s already connected to %s." %
+                             (function, self))
         if kwargs == 'auto':
             spec = inspect.getargspec(function)
             if spec.varargs and not spec.keywords:
@@ -354,9 +354,10 @@ class Event(object):
         elif function in self._connected_some:
             self._connected_some.pop(function)
         elif function in self._connected_map:
-            self._connected_some.pop(function)
+            self._connected_map.pop(function)
         else:
-            raise ValueError("The %s function is not connected." % function)
+            raise ValueError("The %s function is not connected to %s." %
+                             (function, self))
 
     def trigger(self, **kwargs):
         """
@@ -372,14 +373,21 @@ class Event(object):
         """
         if self._suppress:
             return
-        # Loop on copy to deal with callbacks which change connections
-        for function in self._connected_all.difference(
-                self._suppressed_callbacks):
+        # Work on copies of collections of connected functions.
+        # Take copies initially, to ensure that all functions connected when
+        # event triggered are called.
+        connected_all = self._connected_all.difference(
+            self._suppressed_callbacks)
+        connected_some = list(self._connected_some.items())
+        connected_map = list(self._connected_map.items())
+
+        # Loop over all collections
+        for function in connected_all:
             function(**kwargs)
-        for function, kwsl in self._connected_some.items():
+        for function, kwsl in connected_some:
             if function not in self._suppressed_callbacks:
                 function(**{kw: kwargs.get(kw, None) for kw in kwsl})
-        for function, kwsd in self._connected_map.items():
+        for function, kwsd in connected_map:
             if function not in self._suppressed_callbacks:
                 function(**{kwf: kwargs[kwt] for kwt, kwf in kwsd.items()})
 
@@ -387,6 +395,17 @@ class Event(object):
         dc = type(self)()
         memo[id(self)] = dc
         return dc
+
+    def __str__(self):
+        if self.__doc__:
+            edoc = inspect.getdoc(self) or ''
+            doclines = edoc.splitlines()
+            e_short = doclines[0] if len(doclines) > 0 else edoc
+            text = ("<hyperspy.events.Event: " + e_short + ": " +
+                    str(self.connected) + ">")
+        else:
+            text = self.__repr__()
+        return text
 
     def __repr__(self):
         return "<hyperspy.events.Event: " + repr(self.connected) + ">"

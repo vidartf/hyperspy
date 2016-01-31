@@ -19,10 +19,10 @@
 import numpy as np
 import matplotlib.transforms as transforms
 
-from hyperspy.drawing.widgets import DraggableWidgetBase
+from hyperspy.drawing.widgets import Widget1DBase
 
 
-class LabelWidget(DraggableWidgetBase):
+class LabelWidget(Widget1DBase):
 
     """A draggable text widget. Adds the attributes 'string', 'text_color' and
     'bbox'. These are all arguments for matplotlib's Text artist. The default
@@ -31,12 +31,34 @@ class LabelWidget(DraggableWidgetBase):
 
     def __init__(self, axes_manager):
         super(LabelWidget, self).__init__(axes_manager)
-        self.string = ''
+        self._string = ''
         self._snap_position = False
         if not self.axes:
             self._pos = np.array((0, 0.9))
         self.text_color = 'black'
         self.bbox = None
+
+    def _get_string(self):
+        return self._string
+
+    def _set_string(self, value):
+        if self._string == value:
+            return
+        self._string = value
+        self._update_patch_string()
+
+    string = property(lambda s: s._get_string(),
+                      lambda s, v: s._set_string(v))
+
+    def _set_position(self, position):
+        try:
+            size = len(position)
+        except TypeError:
+            position = (position, self._pos[1])
+        else:
+            if size < 2:
+                position = np.concatenate((position, self._pos[1:]))
+        super(LabelWidget, self)._set_position(position)
 
     def _set_axes(self, axes):
         super(LabelWidget, self)._set_axes(axes)
@@ -59,8 +81,13 @@ class LabelWidget(DraggableWidgetBase):
 
     def _update_patch_position(self):
         if self.is_on() and self.patch:
-            self.patch[0].set_x(self.position[0])
-            self.patch[0].set_y(self.position[1])
+            self.patch[0].set_x(self._pos[0])
+            self.patch[0].set_y(self._pos[1])
+            self.draw_patch()
+
+    def _update_patch_string(self):
+        if self.is_on() and self.patch:
+            self.patch[0].set_text(self.string)
             self.draw_patch()
 
     def _set_patch(self):
@@ -68,8 +95,8 @@ class LabelWidget(DraggableWidgetBase):
         trans = transforms.blended_transform_factory(
             ax.transData, ax.transAxes)
         self.patch = [ax.text(
-            self.position[0],
-            self.position[1],
+            self._pos[0],
+            self._pos[1],
             self.string,
             color=self.text_color,
             picker=5,

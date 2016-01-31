@@ -823,11 +823,13 @@ class EDSSpectrum(Spectrum):
             line_energy, line_FWHM = self._get_line_energy(xray_line,
                                                            FWHM_MnKa='auto')
             tmp = [
-                line_energy - line_FWHM *
-                line_width[0] - line_FWHM * windows_width,
+                line_energy - line_FWHM * line_width[0] -
+                line_FWHM * windows_width,
                 line_energy - line_FWHM * line_width[0],
                 line_energy + line_FWHM * line_width[1],
-                line_energy + line_FWHM * line_width[1] + line_FWHM * windows_width]
+                line_energy + line_FWHM * line_width[1] +
+                line_FWHM * windows_width
+                ]
             windows_position.append(tmp)
         windows_position = np.array(windows_position)
         # merge ovelapping windows
@@ -917,7 +919,6 @@ class EDSSpectrum(Spectrum):
         get_lines_intensity, estimate_background_windows
         """
         super(EDSSpectrum, self).plot(**kwargs)
-        self._xray_markers.clear()
         self._plot_xray_lines(xray_lines, only_lines, only_one,
                               background_windows, integration_windows)
 
@@ -947,7 +948,7 @@ class EDSSpectrum(Spectrum):
             for xray in xray_not_here:
                 print("Warning: %s is not in the data energy range." % xray)
             xray_lines = np.unique(xray_lines)
-            self._add_xray_lines_markers(xray_lines)
+            self.add_xray_lines_markers(xray_lines)
             if background_windows is not None:
                 self._add_background_windows_markers(background_windows)
             if integration_windows is not None:
@@ -979,7 +980,7 @@ class EDSSpectrum(Spectrum):
             line = markers.vertical_line(x=x, color=color, **kwargs)
             self.add_marker(line)
 
-    def _add_xray_lines_markers(self, xray_lines):
+    def add_xray_lines_markers(self, xray_lines):
         """
         Add marker on a spec.plot() with the name of the selected X-ray
         lines
@@ -1003,15 +1004,15 @@ class EDSSpectrum(Spectrum):
             line = markers.vertical_line_segment(
                 x=line_energy[i], y1=None, y2=intensity[i] * 0.8)
             self.add_marker(line)
+            string = ('$\mathrm{%s}_{\mathrm{%s}}$' %
+                      utils_eds._get_element_and_line(xray_lines[i]))
             text = markers.text(
-                x=line_energy[i], y=intensity[i] * 1.1, text=xray_lines[i],
+                x=line_energy[i], y=intensity[i] * 1.1, text=string,
                 rotation=90)
             self.add_marker(text)
-            line.events.closed.connect(partial(self._remove_xray_lines_markers,
-                                               xray_lines[i]), [])
             self._xray_markers[xray_lines[i]] = (line, text)
 
-    def _remove_xray_lines_markers(self, xray_lines):
+    def remove_xray_lines_markers(self, xray_lines):
         """
         Remove marker previosuly added on a spec.plot() with the name of the
         selected X-ray lines
@@ -1023,7 +1024,7 @@ class EDSSpectrum(Spectrum):
         """
         for xray_line in xray_lines:
             if xray_line in self._xray_markers:
-                for m in self._xray_markers.pop(xray_line):
+                for m in self._xray_markers[xray_line]:
                     m.close()
 
     def _add_background_windows_markers(self,
