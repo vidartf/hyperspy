@@ -410,6 +410,14 @@ def ser_reader(filename, objects=None, verbose=False, *args, **kwds):
         })
         array_shape.append(data['ArraySizeX'][0])
 
+    # Workaround for negative axes
+    for ax in axes:
+        if 'scale' in ax and ax['scale'] < 0:
+            if 'offset' not in ax:
+                ax['offset'] = 0
+            ax['offset'] += ax['scale'] * ax['size']
+            ax['scale'] = -ax['scale']
+
     # If the acquisition stops before finishing the job, the stored file will
     # report the requested size even though no values are recorded. Therefore
     # if the shapes of the retrieved array does not match that of the data
