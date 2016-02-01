@@ -773,7 +773,7 @@ class Model1D(BaseModel):
                                     {'obj': 'widget'})
 
     def _reverse_lookup_position_widget(self, widget):
-        for parameter, widgets in self._position_widgets.iteritems():
+        for parameter, widgets in self._position_widgets.items():
             if widget in widgets:
                 return parameter
         raise KeyError()
@@ -804,7 +804,7 @@ class Model1D(BaseModel):
 
         """
         self._adjust_position_all = False
-        for pws in self._position_widgets.values():
+        for pws in list(self._position_widgets.values()):
             # Iteration works on a copied collection, so changes during
             # iteration should be ok
             for pw in reversed(pws):    # pws is reference, so work in reverse

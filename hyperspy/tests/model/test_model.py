@@ -920,7 +920,7 @@ class TestAdjustPosition:
         self.m.enable_adjust_position()
         nt.assert_equal(len(self.m._position_widgets), 1)
         # Check that both line and label was added
-        nt.assert_equal(len(self.m._position_widgets.values()[0]), 2)
+        nt.assert_equal(len(tuple(self.m._position_widgets.values())[0]), 2)
 
     def test_disable_adjust_position(self):
         self.m.append(hs.model.components.Gaussian())
@@ -943,11 +943,11 @@ class TestAdjustPosition:
         self.m.append(hs.model.components.Gaussian())
         self.m.append(hs.model.components.Gaussian())
         self.m.enable_adjust_position()
-        self.m._position_widgets.values()[0][0].close()
+        tuple(self.m._position_widgets.values())[0][0].close()
         nt.assert_equal(len(self.m._position_widgets), 2)
-        nt.assert_equal(len(self.m._position_widgets.values()[0]), 1)
-        self.m._position_widgets.values()[0][0].close()
+        nt.assert_equal(len(tuple(self.m._position_widgets.values())[0]), 1)
+        tuple(self.m._position_widgets.values())[0][0].close()
         nt.assert_equal(len(self.m._position_widgets), 1)
-        nt.assert_equal(len(self.m._position_widgets.values()[0]), 2)
+        nt.assert_equal(len(tuple(self.m._position_widgets.values())[0]), 2)
         self.m.disable_adjust_position()
         nt.assert_equal(len(self.m._position_widgets), 0)
