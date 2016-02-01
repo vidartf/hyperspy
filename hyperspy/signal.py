@@ -3943,8 +3943,14 @@ class Signal(FancySlicing,
         data = self.data.reshape(new_shape).squeeze()
 
         if out:
-            out.data[:] = function(data, axis=ar_axes[0],)
-            out.events.data_changed.trigger(out)
+            data = np.atleast_1d(function(data, axis=ar_axes[0],))
+            if data.shape == out.data.shape:
+                out.data[:] = data
+                out.events.data_changed.trigger(obj=out)
+            else:
+                raise ValueError(
+                    "The output shape %s does not match  the shape of "
+                    "`out` %s" % (data.shape, out.data.shape))
         else:
             s.data = function(data, axis=ar_axes[0])
             s._remove_axis([ax.index_in_axes_manager for ax in axes])
@@ -3955,6 +3961,8 @@ class Signal(FancySlicing,
         axes = self.axes_manager[axes]
         if not np.iterable(axes):
             axes = (axes,)
+        # Use out argument in numpy function when available for operations that
+        # do not return scalars in numpy.
         np_out = not len(self.axes_manager._axes) == len(axes)
         ar_axes = tuple(ax.index_in_array for ax in axes)
         if len(ar_axes) == 1:
@@ -3969,7 +3977,13 @@ class Signal(FancySlicing,
             if np_out and function is not np.argmax:
                 function(self.data, axis=ar_axes, out=out.data,)
             else:
-                out.data[:] = function(self.data, axis=ar_axes,)
+                data = np.atleast_1d(function(self.data, axis=ar_axes))
+                if data.shape == out.data.shape:
+                    out.data[:] = data
+                else:
+                    raise ValueError(
+                        "The output shape %s does not match  the shape of "
+                        "`out` %s" % (data.shape, out.data.shape))
             out.events.data_changed.trigger(obj=out)
         else:
             s.data = np.atleast_1d(
