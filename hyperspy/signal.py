@@ -3941,7 +3941,7 @@ class Signal(FancySlicing,
 
         if out:
             data = np.atleast_1d(function(data, axis=ar_axes[0],))
-            if np_out:
+            if data.shape == out.data.shape:
                 out.data[:] = data
                 out.events.data_changed.trigger(obj=out)
             else:
