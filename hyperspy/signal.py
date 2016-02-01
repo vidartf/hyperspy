@@ -3963,7 +3963,7 @@ class Signal(FancySlicing,
             return self._ma_workaround(s=s, function=function, axes=axes,
                                        ar_axes=ar_axes, out=out)
         if out:
-            if np_out:
+            if np_out and function is not np.argmax:
                 function(self.data, axis=ar_axes, out=out.data,)
             else:
                 out.data[:] = function(self.data, axis=ar_axes,)
