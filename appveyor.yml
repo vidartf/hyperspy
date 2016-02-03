@@ -82,6 +82,8 @@ install:
   - ps: Add-AppveyorMessage "Installing conda packages..."
   - "%CMD_IN_ENV% conda install -yq %TEST_DEPS%"
   - "%CMD_IN_ENV% conda install -yq %DEPS%"
+    # Having 'sip' folder on path confuses import of `sip`.
+  - "%CMD_IN_ENV% mv %PYTHON%\sip %PYTHON%\Lib\site-packages\PyQt4\sip
   - "%CMD_IN_ENV% conda install pip"
   # TODO: Remove once anaconda taitsui package is at v5:
   - "IF \"%PYTHON_MAJOR%\" EQU \"3\" pip install --upgrade traitsui"
@@ -92,7 +94,6 @@ build: false  # Not a C# project, build stuff at the test step instead.
 
 test_script:
   # Run the project tests
-  - "ls %PYTHON%/sip"
   - ps: Add-AppveyorMessage "Running tests..."
   - "python continuous_integration/nosetest.py hyperspy"
   - ps: Add-AppveyorMessage "Testing completed."
