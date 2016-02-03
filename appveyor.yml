@@ -92,6 +92,7 @@ build: false  # Not a C# project, build stuff at the test step instead.
 
 test_script:
   # Run the project tests
+  - "ls %PYTHON%/sip"
   - ps: Add-AppveyorMessage "Running tests..."
   - "python continuous_integration/nosetest.py hyperspy"
   - ps: Add-AppveyorMessage "Testing completed."
