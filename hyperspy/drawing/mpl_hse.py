@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2015 The HyperSpy developers
+# Copyright 2007-2016 The HyperSpy developers
 #
 # This file is part of  HyperSpy.
 #
@@ -56,7 +56,7 @@ class MPL_HyperSpectrum_Explorer(MPL_HyperExplorer):
             if value is True:
                 self.pointer.set_mpl_ax(self.navigator_plot.ax)
             else:
-                self.pointer.disconnect(self.navigator_plot.ax)
+                self.pointer.disconnect()
 
     @property
     def right_pointer_on(self):
@@ -118,8 +118,6 @@ class MPL_HyperSpectrum_Explorer(MPL_HyperExplorer):
         self.signal_plot = sf
         sf.plot()
         if self.navigator_plot is not None and sf.figure is not None:
-            utils.on_figure_window_close(self.navigator_plot.figure,
-                                         self._disconnect)
             utils.on_figure_window_close(sf.figure,
                                          self.close_navigator_plot)
             self._key_nav_cid = \
@@ -149,6 +147,7 @@ class MPL_HyperSpectrum_Explorer(MPL_HyperExplorer):
                 self.signal_plot.right_axes_manager)
             self.right_pointer.size = self.pointer.size
             self.right_pointer.color = 'blue'
+            self.right_pointer.connect_navigate()
             self.right_pointer.set_mpl_ax(self.navigator_plot.ax)
 
         if self.right_pointer is not None:
