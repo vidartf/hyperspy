@@ -14,7 +14,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with HyperSpy.  If not, see <http://www.gnu.org/licenses/>.
+# along with HyperSpy. If not, see <http://www.gnu.org/licenses/>.
 
 
 
@@ -409,10 +409,6 @@ class ImagePlot(BlittedFigure):
         while check_tolerance() and i <= step_prec_max:
             optimize_for_oom(step_oom - i)
             i += 1
-
-    def disconnect(self):
-        if self.axes_manager:
-            self.axes_manager.events.indices_changed.disconnect(self.update)
 
     def _on_close(self):
         for marker in self.ax_markers:
