@@ -571,7 +571,7 @@ class AxesManager(t.HasTraits):
             updated.
 
             Arguments:
-            ---------
+            ----------
             obj : The AxesManager that the event belongs to.
             """, arguments=['obj'])
         self.events.any_axis_changed = Event("""

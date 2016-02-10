@@ -56,15 +56,18 @@ class CircleWidget(Widget2DBase, ResizersMixin):
         change, if the value has changed.
         """
         # Override so that r_inner can be 0
-        value = np.minimum(value, [ax.size for ax in self.axes])
+        value = np.minimum(value, [0.5 * ax.size * ax.scale for ax in self.axes])
         # Changed from base:
         min_sizes = np.array((0.5 * self.axes[0].scale, 0))
         value = np.maximum(value, min_sizes)
-        if self.snap_size:
-            value = self._do_snap_size(value)
-        if np.any(self._size != value):
-            self._size = value
-            self._size_changed()
+        if value[0] < value[1]:
+            self._set_size(value[::-1])
+        else:
+            if self.snap_size:
+                value = self._do_snap_size(value)
+            if np.any(self._size != value):
+                self._size = value
+                self._size_changed()
 
     def increase_size(self):
         """Increment all sizes by one step. Applied via 'size' property.
