@@ -323,12 +323,13 @@ class BaseInteractiveROI(BaseROI):
             If not None, it will use 'out' as the output instead of returning
             a new Signal.
         """
-        if isinstance(navigation_signal, basestring) and navigation_signal == "same":
+        if isinstance(navigation_signal, str) and navigation_signal == "same":
             navigation_signal = signal
         if navigation_signal is not None:
             if navigation_signal not in self.signal_map:
                 self.add_widget(navigation_signal)
-        if self.update not in signal.axes_manager.events.any_axis_changed.connected:
+        if (self.update not in
+                signal.axes_manager.events.any_axis_changed.connected):
             signal.axes_manager.events.any_axis_changed.connect(
                 self.update,
                 [])
