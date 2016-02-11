@@ -133,7 +133,7 @@ class TestROIs():
             np.where(mask.flatten())[0],
             [0, 1, 6, 7, 8, 15, 48, 55, 56, 57, 62, 63])
         mask_ann = sr_ann.data.mask[:, :, 0]
-        print mask_ann   # To help debugging, this shows the shape of the mask
+        print(mask_ann)   # To help debugging, this shows the shape of the mask
         np.testing.assert_array_equal(
             np.where(mask_ann.flatten())[0],
             [0, 1, 6, 7, 8, 10, 11, 12, 13, 15, 17, 18, 19, 20, 21, 22, 25,
