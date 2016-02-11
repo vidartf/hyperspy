@@ -190,13 +190,8 @@ class BaseROI(t.HasTraits):
         [<DataAxis>]
         """
         nd = self.ndim
-        axes_out = []
         if isinstance(axes, (tuple, list)):
-            for i in range(nd):
-                if isinstance(axes[i], DataAxis):
-                    axes_out.append(axes[i])
-                else:
-                    axes_out.append(axes_manager[axes[i]])
+            axes_out = axes_manager[axes[:nd]]
         else:
             if axes_manager.navigation_dimension >= nd:
                 axes_out = axes_manager.navigation_axes[:nd]
@@ -212,6 +207,19 @@ class BaseROI(t.HasTraits):
                 raise ValueError("Could not find valid axes configuration.")
 
         return axes_out
+
+    @staticmethod
+    def _update_metadata_after_signal_axes_removal(signal):
+        am = signal.axes_manager
+        if am.signal_dimension == 2:
+            signal._record_by = "image"
+        elif am.signal_dimension == 1:
+            signal._record_by = "spectrum"
+        elif am.signal_dimension == 0:
+            signal._record_by = ""
+        else:
+            return
+        signal.metadata.Signal.record_by = signal._record_by
 
 
 def _get_mpl_ax(plot, axes):
@@ -437,7 +445,18 @@ class BasePointROI(BaseInteractiveROI):
     """Base ROI class for point ROIs, i.e. ROIs with a unit size in each of its
     dimensions.
     """
-    pass    # Only used for identification purposes currently
+
+    def __call__(self, signal, out=None, axes=None):
+        if axes is None and signal in self.signal_map:
+            axes = self.signal_map[signal][1]
+        else:
+            axes = self._parse_axes(axes, signal.axes_manager)
+        s = super(BasePointROI, self).__call__(signal=signal, out=out,
+                                               axes=axes)
+        if out is None:
+            if any([not a.navigate for a in axes]):
+                self._update_metadata_after_signal_axes_removal(s)
+        return s
 
 
 class Point1DROI(BasePointROI):
@@ -1111,11 +1130,7 @@ class Line2DROI(BaseInteractiveROI):
                          original_metadata=signal.original_metadata.
                          deepcopy().as_dictionary())
             if any([not a.navigate for a in axes]):
-                # We modified signal space, so we need to change metadata
-                if (roi.axes_manager.signal_dimension != 1):
-                    raise ValueError("Uknown signal type encountered, please "
-                                     "updated Line2DROI to support it!")
-                roi.metadata.Signal.record_by = 'spectrum'
+                self._update_metadata_after_signal_axes_removal(roi)
             return roi
         else:
             out.data = profile
