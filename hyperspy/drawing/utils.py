@@ -427,9 +427,9 @@ def plot_images(images,
             specially useful when using diverging color schemes. If "auto"
             (default), diverging color schemes are automatically centred.
         saturated_pixels: scalar
-            The percentage of pixels that are left out of the bounds.  For example,
-            the low and high bounds of a value of 1 are the 0.5% and 99.5%
-            percentiles. It must be in the [0, 100] range.
+            The percentage of pixels that are left out of the bounds.  For
+            example, the low and high bounds of a value of 1 are the 0.5% and
+            99.5% percentiles. It must be in the [0, 100] range.
         scalebar : {None, 'all', list of ints}, optional
             If None (or False), no scalebars will be added to the images.
             If 'all', scalebars will be added to all images.
@@ -631,9 +631,7 @@ def plot_images(images,
             del label_list[n:]
 
     else:
-        # catch all others to revert to default if bad input
-        print("Did not understand input of labels. Defaulting to image titles.")
-        label_list = [x.metadata.General.title for x in images]
+        raise ValueError("Did not understand input of labels.")
 
     # Determine appropriate number of images per row
     rows = int(np.ceil(n / float(per_row)))
@@ -663,7 +661,7 @@ def plot_images(images,
     non_rgb = list(itertools.compress(images, [not j for j in isrgb]))
     if len(non_rgb) is 0 and colorbar is not None:
         colorbar = None
-        print("Sorry, colorbar is not implemented for RGB images.")
+        warnings.warn("Sorry, colorbar is not implemented for RGB images.")
 
     # Find global min and max values of all the non-rgb images for use with
     # 'single' scalebar
@@ -726,9 +724,7 @@ def plot_images(images,
 
             if not isinstance(aspect, (int, float)) and aspect not in [
                     'auto', 'square', 'equal']:
-                print('Did not understand aspect ratio input. ' \
-                      'Using \'auto\' as default.')
-                aspect = 'auto'
+                raise ValueError('Did not understand aspect ratio input.')
 
             if aspect is 'auto':
                 if float(yaxis.size) / xaxis.size < min_asp:
@@ -905,7 +901,8 @@ def plot_spectra(
     color : matplotlib color or a list of them or `None`
         Sets the color of the lines of the plots (no action on 'heatmap').
         If a list, if its length is less than the number of spectra to plot,
-        the colors will be cycled. If `None`, use default matplotlib color cycle.
+        the colors will be cycled. If `None`, use default matplotlib color
+        cycle.
     line_style: matplotlib line style or a list of them or `None`
         Sets the line style of the plots (no action on 'heatmap').
         The main line style are '-','--','steps','-.',':'.
@@ -913,9 +910,9 @@ def plot_spectra(
         spectra to plot, line_style will be cycled. If
         If `None`, use continuous lines, eg: ('-','--','steps','-.',':')
     padding : float, optional, default 0.1
-        Option for "cascade". 1 guarantees that there is not overlapping. However,
-        in many cases a value between 0 and 1 can produce a tighter plot
-        without overlapping. Negative values have the same effect but
+        Option for "cascade". 1 guarantees that there is not overlapping.
+        However, in many cases a value between 0 and 1 can produce a tighter
+        plot without overlapping. Negative values have the same effect but
         reverse the order of the spectra without reversing the order of the
         colors.
     legend: None or list of str or 'auto'

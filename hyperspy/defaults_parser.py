@@ -19,16 +19,18 @@
 
 import os.path
 import configparser
+import logging
 
 import traits.api as t
 
 from hyperspy.misc.config_dir import config_path, os_name, data_path
-from hyperspy import messages
 from hyperspy.misc.ipython_tools import turn_logging_on, turn_logging_off
 from hyperspy.io_plugins import default_write_ext
 
 defaults_file = os.path.join(config_path, 'hyperspyrc')
 eels_gos_files = os.path.join(data_path, 'EELS_GOS.tar.gz')
+
+_logger = logging.getLogger(__name__)
 
 
 def guess_gos_path():
@@ -58,7 +60,7 @@ if os.path.isfile(defaults_file):
     if 'Not really' in f.readline():
         # It is the old config file
         f.close()
-        messages.information('Removing obsoleted config file')
+        _logger.info('Removing obsoleted config file')
         os.remove(defaults_file)
         defaults_file_exists = False
     else:
@@ -114,9 +116,10 @@ class GeneralConfig(t.HasTraits):
     dtb_expand_structures = t.CBool(
         True,
         label='Expand structures in DictionaryTreeBrowser',
-        desc='If enabled, when printing DictionaryTreeBrowser (e.g. metadata), '
-             'long lists and tuples will be expanded and any dictionaries in them will be '
-             'printed similar to DictionaryTreeBrowser, but with double lines')
+        desc='If enabled, when printing DictionaryTreeBrowser (e.g. '
+             'metadata), long lists and tuples will be expanded and any '
+             'dictionaries in them will be printed similar to '
+             'DictionaryTreeBrowser, but with double lines')
 
     def _logger_on_changed(self, old, new):
         if new is True:
@@ -289,7 +292,7 @@ if defaults_file_exists:
             rewrite = True
 
 if not defaults_file_exists or rewrite is True:
-    messages.information('Writing the config file')
+    _logger.info('Writing the config file')
     config.write(open(defaults_file, 'w'))
 
 # Use the traited classes to cast the content of the ConfigParser
@@ -332,6 +335,7 @@ try:
     f.close()
 except NameError:
     pass
+
 
 def file_version(fname):
     with open(fname, 'r') as f:
