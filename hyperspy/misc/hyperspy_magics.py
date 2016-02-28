@@ -1,9 +1,10 @@
 from IPython.core.magic import Magics, magics_class, line_magic
-from IPython.core.magic_arguments import magic_arguments, argument, parse_argstring
+from IPython.core.magic_arguments import (
+    magic_arguments, argument, parse_argstring)
 import warnings
 
 from hyperspy.defaults_parser import preferences
-from hyperspy.misc.hspy_warnings import VisibleDeprecationWarning
+from hyperspy.exceptions import VisibleDeprecationWarning
 
 
 @magics_class
@@ -55,7 +56,7 @@ class HyperspyMagics(Magics):
 
         gui = False
         args = parse_argstring(self.hyperspy, line)
-        overwrite = not args.replace is None
+        overwrite = args.replace is not None
         toolkit = args.toolkit
         if toolkit is None:
             toolkit = preferences.General.default_toolkit
@@ -79,7 +80,8 @@ class HyperspyMagics(Magics):
                      "import matplotlib.pyplot as plt\n")
         exec(to_import, sh.user_ns)
 
-        header = "\nHyperSpy imported!\nThe following commands were just executed:\n"
+        header = ("\nHyperSpy imported!\nThe following commands were just "
+                  "executed:\n")
         header += "---------------\n"
         ans = mpl_code
         if gui:
