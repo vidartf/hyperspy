@@ -82,7 +82,6 @@ from hyperspy.docstrings.signal import (
     ONE_AXIS_PARAMETER, MANY_AXIS_PARAMETER, OUT_ARG)
 from hyperspy.events import Events, Event
 from hyperspy.interactive import interactive
-from hyperspy.exceptions import VisibleDeprecationWarning
 from hyperspy.misc.signal_tools import are_signals_aligned
 
 _logger = logging.getLogger(__name__)
