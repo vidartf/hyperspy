@@ -1067,7 +1067,7 @@ class Line2DROI(BaseInteractiveROI):
             intensities = np.rollaxis(
                 np.reshape(intensities,
                            intensities.shape[0:1] + orig_shape[2:]),
-                0, i0+1)
+                0, i0 + 1)
         else:
             pixels = nd.map_coordinates(img, perp_lines,
                                         order=order, mode=mode, cval=cval)
@@ -1117,7 +1117,7 @@ class Line2DROI(BaseInteractiveROI):
         if out is None:
             axm = signal.axes_manager.deepcopy()
             i0 = min(axes[0].index_in_array, axes[1].index_in_array)
-            axm.remove([ax.index_in_array+3j for ax in axes])
+            axm.remove([ax.index_in_array + 3j for ax in axes])
             axis = DataAxis(profile.shape[i0],
                             scale=length / profile.shape[i0],
                             units=axes[0].units,
