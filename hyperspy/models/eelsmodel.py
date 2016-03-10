@@ -165,7 +165,7 @@ class EELSModel(Model1D):
                 self._background_components[0].__repr__()
             bg = self._background_components[0]
             if isinstance(bg, PowerLaw) and self.edges and not \
-                    bg.A.map["is_set"].any():
+               bg.A.map["is_set"].any():
                 self.two_area_background_estimation()
 
     @property

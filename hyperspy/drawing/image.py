@@ -17,7 +17,6 @@
 # along with HyperSpy. If not, see <http://www.gnu.org/licenses/>.
 
 
-
 import math
 import warnings
 

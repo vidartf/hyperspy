@@ -662,7 +662,8 @@ def unpack_from_intbytes(fmt, byte_list):
     """Read in a list of bytes (as int with range 0-255) and unpack them with
     format `fmt`.
     """
-    return struct.unpack(fmt, b''.join(map(bytes, [[byte] for byte in byte_list])))[0]
+    return struct.unpack(fmt, b''.join(
+        map(bytes, [[byte] for byte in byte_list])))[0]
 
 
 def pack_to_intbytes(fmt, value):

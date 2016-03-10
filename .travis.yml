@@ -13,14 +13,13 @@ matrix:
   allow_failures:
     - env: export FAIL_ON_EXTERNAL_DEPRECATION='True'
 
-
 install:
-  - DEPS="nose numpy scipy matplotlib ipython h5py sympy scikit-learn dill natsort mock setuptools"
+  - DEPS="nose numpy scipy matplotlib traits traitsui ipython h5py sympy scikit-learn dill natsort mock setuptools"
   - conda create -n testenv --yes python=$TRAVIS_PYTHON_VERSION
   - source activate testenv
   - conda install --yes $DEPS
   - conda install pip
-  - pip install coverage coveralls request
+  - pip install coverage coveralls traits traitsui request
   - python setup.py install
 
 before_install:

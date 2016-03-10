@@ -17,7 +17,6 @@
 # along with  HyperSpy.  If not, see <http://www.gnu.org/licenses/>.
 
 
-
 import types
 import logging
 
@@ -842,8 +841,7 @@ class MVA():
 
         Returns
         -------
-        rec : Signal instance
-
+        Signal instance
         """
         rec = self._calculate_recmatrix(components=components, mva_type='bss',)
         return rec

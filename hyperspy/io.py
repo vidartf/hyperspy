@@ -196,9 +196,9 @@ def load(filenames=None,
                                        **kwds)
                 signal.append(obj)
             signal = hyperspy.misc.utils.stack(signal,
-                           axis=stack_axis,
-                           new_axis_name=new_axis_name,
-                           mmap=mmap, mmap_dir=mmap_dir)
+                                               axis=stack_axis,
+                                               new_axis_name=new_axis_name,
+                                               mmap=mmap, mmap_dir=mmap_dir)
             signal.metadata.General.title = \
                 os.path.split(
                     os.path.split(

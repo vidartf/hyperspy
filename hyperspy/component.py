@@ -43,7 +43,7 @@ class NoneFloat(t.CFloat):   # Lazy solution, but usable
     default_value = None
 
     def validate(self, object, name, value):
-        if value == "None":
+        if value == "None" or value == b"None":
             value = None
         if value is None:
             super(NoneFloat, self).validate(object, name, 0)
@@ -1010,6 +1010,11 @@ class Component(t.HasTraits):
         for _parameter in parameter_list:
             _parameter.free = False
 
+    def _estimate_parameters(self, signal):
+        if self._axes_manager != signal.axes_manager:
+            self._axes_manager = signal.axes_manager
+            self._create_arrays()
+
     def as_dictionary(self, fullcopy=True):
         """Returns component as a dictionary
 
@@ -1084,7 +1089,4 @@ class Component(t.HasTraits):
             raise ValueError( "_id_name of component and dictionary do not match, \ncomponent._id_name = %s\
                     \ndictionary['_id_name'] = %s" % (self._id_name, dic['_id_name']))
 
-    def _estimate_parameters(self, signal):
-        if self._axes_manager != signal.axes_manager:
-            self._axes_manager = signal.axes_manager
-            self._create_arrays()
+# vim: textwidth=80

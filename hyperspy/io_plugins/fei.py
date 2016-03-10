@@ -268,7 +268,7 @@ def emi_reader(filename, dump_xml=False, **kwds):
             with open(filename + '-object-%s.xml' % i, 'w') as f:
                 f.write(obj)
 
-    ser_files = glob(filename + '_[0-9].ser')
+    ser_files = sorted(glob(filename + '_[0-9].ser'))
     sers = []
     for f in ser_files:
         _logger.info("Opening %s", f)
@@ -386,10 +386,10 @@ def get_axes_from_position(header, data):
     array_shape = []
     axes = []
     array_size = int(header["ValidNumberElements"])
-    if data["TagTypeID"][0] == XY_TAG_ID:
-        xcal = get_calibration_from_position(data["PositionX"])
-        ycal = get_calibration_from_position(data["PositionY"])
-        if xcal["size"] == 0 and ycal["size"] != 0:
+    if data[b"TagTypeID"][0] == XY_TAG_ID:
+        xcal = get_calibration_from_position(data[b"PositionX"])
+        ycal = get_calibration_from_position(data[b"PositionY"])
+        if xcal[b"size"] == 0 and ycal[b"size"] != 0:
             # Vertical line scan
             axes.append({
                 'name': "x",
@@ -399,7 +399,7 @@ def get_axes_from_position(header, data):
             axes[-1].update(xcal)
             array_shape.append(axes[-1]["size"])
 
-        elif xcal["size"] != 0 and ycal["size"] == 0:
+        elif xcal[b"size"] != 0 and ycal[b"size"] == 0:
             # Horizontal line scan
             axes.append({
                 'name': "y",
@@ -409,7 +409,7 @@ def get_axes_from_position(header, data):
             axes[-1].update(ycal)
             array_shape.append(axes[-1]["size"])
 
-        elif xcal["size"] * ycal["size"] == array_size:
+        elif xcal[b"size"] * ycal[b"size"] == array_size:
             # Image
             axes.append({
                 'name': "y",
@@ -425,7 +425,7 @@ def get_axes_from_position(header, data):
             })
             axes[-1].update(xcal)
             array_shape.append(axes[-1]["size"])
-        elif xcal["size"] == ycal["size"] == array_size:
+        elif xcal[b"size"] == ycal[b"size"] == array_size:
             # Oblique line scan
             scale = np.sqrt(xcal["scale"] ** 2 + ycal["scale"] ** 2)
             axes.append({
@@ -463,7 +463,6 @@ def ser_reader(filename, objects=None, verbose=False, *args, **kwds):
     required format.
 
     """
-
     header, data = load_ser_file(filename, verbose=verbose)
     record_by = guess_record_by(header['DataTypeID'])
     ndim = int(header['NumberDimensions'])
@@ -537,7 +536,8 @@ def ser_reader(filename, objects=None, verbose=False, *args, **kwds):
                             'Dim-%i_CalibrationDelta' % (i + 1)][0],
                         # for image stack, the UnitsLength is 0 (no units)
                         'units': header['Dim-%i_Units' % (i + 1)][0].decode(
-                            'utf-8') if header['Dim-%i_UnitsLength' % (i + 1)] > 0
+                            'utf-8')
+						if header['Dim-%i_UnitsLength' % (i + 1)] > 0
                         else 'Unknown',
                         'size': header['Dim-%i_DimensionSize' % (i + 1)][0],
                     })
@@ -631,7 +631,7 @@ def ser_reader(filename, objects=None, verbose=False, *args, **kwds):
     return dictionary
 
 
-def guess_units_from_mode(objects_dict, header, verbose=False):
+def guess_units_from_mode(objects_dict, header, verbose=True):
     # in case the xml file doesn't contain the "Mode" or the header doesn't
     # contain 'Dim-1_UnitsLength', return "meters" as default, which will be
     # OK most of the time
@@ -657,13 +657,13 @@ def guess_units_from_mode(objects_dict, header, verbose=False):
         return 'meters'  # Most of the time, the unit will be meters!
 
     if verbose:
-        print "------------"
-        print objects_dict.ObjectInfo.AcquireInfo
-        print "mode", mode
-        print "isCamera:", isCamera
-        print "isImageStack:", isImageStack
-        print "isImageStack:", isDiffractionScan
-        print "------------"
+        print("------------")
+        print(objects_dict.ObjectInfo.AcquireInfo)
+        print("mode", mode)
+        print("isCamera:", isCamera)
+        print("isImageStack:", isImageStack)
+        print("isImageStack:", isDiffractionScan)
+        print("------------")
     if 'STEM' in mode:
         # data recorded in STEM with a camera, so we assume, it's a diffraction
         # in case we can't make use the detector is a camera, use a workaround

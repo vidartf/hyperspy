@@ -151,7 +151,8 @@ class TestLoadingNewSavedMetadata:
 
     def test_binary_string(self):
         import dill
-        # apparently pickle is not "full" and marshal is not backwards-compatible
+        # apparently pickle is not "full" and marshal is not
+        # backwards-compatible
         f = dill.loads(self.s.metadata.test.binary_string)
         nt.assert_equal(f(3.5), 4.5)
 

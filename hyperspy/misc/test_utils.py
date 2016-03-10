@@ -84,19 +84,19 @@ def all_warnings():
     # pass).  Then, we search for all submodules of skimage and clear theirs
     # as well (necessary for the skimage test suite to pass).
 
-    frame = inspect.currentframe()
-    if frame:
-        for f in inspect.getouterframes(frame):
-            f[0].f_locals['__warningregistry__'] = {}
-    del frame
+    # frame = inspect.currentframe()
+    # if frame:
+    #     for f in inspect.getouterframes(frame):
+    #         f[0].f_locals['__warningregistry__'] = {}
+    # del frame
 
-    for mod_name, mod in list(sys.modules.items()):
-        if 'six.moves' in mod_name:
-            continue
-        try:
-            mod.__warningregistry__.clear()
-        except AttributeError:
-            pass
+    # for mod_name, mod in list(sys.modules.items()):
+    #     if 'six.moves' in mod_name:
+    #         continue
+    #     try:
+    #         mod.__warningregistry__.clear()
+    #     except AttributeError:
+    #         pass
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")

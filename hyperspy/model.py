@@ -269,13 +269,17 @@ class BaseModel(list):
         class_name = str(self.__class__).split("'")[1].split('.')[-1]
 
         if len(title):
-            return "<%s, title: %s>" % (class_name, self.signal.metadata.General.title)
+            return "<%s, title: %s>" % (
+                class_name, self.signal.metadata.General.title)
         else:
             return "<%s>" % class_name
 
     def _get_component(self, thing):
         if isinstance(thing, int) or isinstance(thing, str):
             thing = self[thing]
+        elif np.iterable(thing):
+            thing = [self._get_component(athing) for athing in thing]
+            return thing
         elif not isinstance(thing, Component):
             raise ValueError("Not a component or component id.")
         if thing in self:
@@ -329,11 +333,8 @@ class BaseModel(list):
             self.append(object)
 
     def __delitem__(self, thing):
-        things = self.__getitem__(thing)
-        if not isinstance(things, list):
-            things = [things,]
-        for thing in things:
-            self.remove(thing)
+        thing = self.__getitem__(thing)
+        self.remove(thing)
 
     def remove(self, thing):
         """Remove component from model.
@@ -360,8 +361,11 @@ class BaseModel(list):
 
         """
         thing = self._get_component(thing)
-        list.remove(self, thing)
-        thing.model = None
+        if not np.iterable(thing):
+            thing = [thing, ]
+        for athing in thing:
+            list.remove(self, athing)
+            athing.model = None
         if self._plot_active:
             self.update_plot()
 

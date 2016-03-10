@@ -631,7 +631,8 @@ class AxesManager(t.HasTraits):
         if isinstance(y, str) or not np.iterable(y):
             return self[(y,)][0]
         axes = [self._axes_getter(ax) for ax in y]
-        _, indices = np.unique(axes, return_index=True)
+        _, indices = np.unique(
+            [_id for _id in map(id, axes)], return_index=True)
         ans = tuple(axes[i] for i in sorted(indices))
         return ans
 

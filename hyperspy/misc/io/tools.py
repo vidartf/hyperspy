@@ -6,7 +6,7 @@ _logger = logging.getLogger(__name__)
 
 def dump_dictionary(file, dic, string='root', node_separator='.',
                     value_separator=' = '):
-    for key in dic.keys():
+    for key in list(dic.keys()):
         if isinstance(dic[key], dict):
             dump_dictionary(file, dic[key], string + node_separator + key)
         else:

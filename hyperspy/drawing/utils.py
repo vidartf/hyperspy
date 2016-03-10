@@ -984,8 +984,9 @@ def plot_spectra(
             if legend == 'auto':
                 legend = [spec.metadata.General.title for spec in spectra]
             else:
-                raise ValueError("legend must be None, 'auto' or a list of "
-                                 "string")
+                raise ValueError("legend must be None, 'auto' or a list of"
+                                 " string")
+
         elif hasattr(legend, "__iter__"):
             legend = itertools.cycle(legend)
         else:

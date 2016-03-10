@@ -258,17 +258,20 @@ class Model1D(BaseModel):
             self._make_position_adjuster(thing, self._adjust_position_all[0],
                                          self._adjust_position_all[1])
 
-    def remove(self, thing):
-        thing = self._get_component(thing)
-        parameter = thing._position
-        if parameter in self._position_widgets:
-            for pw in reversed(self._position_widgets[parameter]):
-                pw.close()
-        if hasattr(thing, '_model_plot_line'):
-            line = thing._model_plot_line
-            line.close()
-        super(Model1D, self).remove(thing)
-        self._disconnect_parameters2update_plot([thing])
+    def remove(self, things):
+        things = self._get_component(things)
+        if not np.iterable(things):
+            things = [things]
+        for thing in things:
+            parameter = thing._position
+            if parameter in self._position_widgets:
+                for pw in reversed(self._position_widgets[parameter]):
+                    pw.close()
+            if hasattr(thing, '_model_plot_line'):
+                line = thing._model_plot_line
+                line.close()
+        super(Model1D, self).remove(things)
+        self._disconnect_parameters2update_plot(things)
 
     remove.__doc__ = BaseModel.remove.__doc__
 
