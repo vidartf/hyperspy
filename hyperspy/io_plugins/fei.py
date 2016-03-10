@@ -457,12 +457,12 @@ def convert_xml_to_dict(xml_object):
     return op
 
 
-def ser_reader(filename, objects=None, verbose=False, *args, **kwds):
+def ser_reader(filename, objects=None, *args, **kwds):
     """Reads the information from the file and returns it in the HyperSpy
     required format.
 
     """
-    header, data = load_ser_file(filename, verbose=verbose)
+    header, data = load_ser_file(filename)
     record_by = guess_record_by(header['DataTypeID'])
     ndim = int(header['NumberDimensions'])
     if record_by == 'spectrum':
@@ -630,7 +630,7 @@ def ser_reader(filename, objects=None, verbose=False, *args, **kwds):
     return dictionary
 
 
-def guess_units_from_mode(objects_dict, header, verbose=True):
+def guess_units_from_mode(objects_dict, header):
     # in case the xml file doesn't contain the "Mode" or the header doesn't
     # contain 'Dim-1_UnitsLength', return "meters" as default, which will be
     # OK most of the time
@@ -655,14 +655,11 @@ def guess_units_from_mode(objects_dict, header, verbose=True):
         warnings.warn(warn_str)
         return 'meters'  # Most of the time, the unit will be meters!
 
-    if verbose:
-        print("------------")
-        print(objects_dict.ObjectInfo.AcquireInfo)
-        print("mode", mode)
-        print("isCamera:", isCamera)
-        print("isImageStack:", isImageStack)
-        print("isImageStack:", isDiffractionScan)
-        print("------------")
+    _logger.info(objects_dict.ObjectInfo.AcquireInfo)
+    _logger.info("mode: %s", mode)
+    _logger.info("isCamera: %s", isCamera)
+    _logger.info("isImageStack: %s", isImageStack)
+    _logger.info("isImageStack: %s", isDiffractionScan)
     if 'STEM' in mode:
         # data recorded in STEM with a camera, so we assume, it's a diffraction
         # in case we can't make use the detector is a camera, use a workaround

@@ -320,7 +320,6 @@ if preferences.General.logger_on:
     turn_logging_on(verbose=0)
 
 
-
 def file_version(fname):
     with open(fname, 'r') as f:
         for l in f.readlines():
