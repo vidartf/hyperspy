@@ -29,7 +29,7 @@ if __name__ == '__main__':
         warnings.filterwarnings('default', module="hyperspy")
     else:
         # Fall-back filter: Default
-        warnings.simplefilter('default')
+        warnings.simplefilter('error')
         warnings.filterwarnings(
             'ignore', "Failed to import the optional scikit image package",
             UserWarning)

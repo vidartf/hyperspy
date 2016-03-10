@@ -221,10 +221,10 @@ def guess_record_by(record_by_id):
 def parse_ExperimentalDescription(et, dictree):
     dictree.add_node(et.tag)
     dictree = dictree[et.tag]
-    for data in et.find(b"Root").findall(b"Data"):
-        label = data.find(b"Label").text
-        value = data.find(b"Value").text
-        units = data.find(b"Unit").text
+    for data in et.find("Root").findall("Data"):
+        label = data.find("Label").text
+        value = data.find("Value").text
+        units = data.find("Unit").text
         item = label if not units else label + "_%s" % units
         value = float(value) if units else value
         dictree[item] = value
@@ -239,10 +239,10 @@ def parse_TrueImageHeaderInfo(et, dictree):
 
 
 def emixml2dtb(et, dictree):
-    if et.tag == b"ExperimentalDescription":
+    if et.tag == "ExperimentalDescription":
         parse_ExperimentalDescription(et, dictree)
         return
-    elif et.tag == b"TrueImageHeaderInfo":
+    elif et.tag == "TrueImageHeaderInfo":
         parse_TrueImageHeaderInfo(et, dictree)
         return
     if et.text:
@@ -536,7 +536,7 @@ def ser_reader(filename, objects=None, *args, **kwds):
                         # for image stack, the UnitsLength is 0 (no units)
                         'units': header['Dim-%i_Units' % (i + 1)][0].decode(
                             'utf-8')
-						if header['Dim-%i_UnitsLength' % (i + 1)] > 0
+                        if header['Dim-%i_UnitsLength' % (i + 1)] > 0
                         else 'Unknown',
                         'size': header['Dim-%i_DimensionSize' % (i + 1)][0],
                     })

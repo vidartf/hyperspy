@@ -350,11 +350,6 @@ class DataAxis(t.HasTraits):
         cp = self.copy()
         return cp
 
-    def __lt__(self, other):
-        return (
-            (self.name, self.scale, self.size, self.offset, self.units) <
-            (other.name, other.scale, other.size, other.offset, other.units))
-
     def value2index(self, value, rounding=round):
         """Return the closest index to the given value if between the limit.
 
@@ -448,6 +443,7 @@ class DataAxis(t.HasTraits):
 
     def update_from(self, axis, attributes=["scale", "offset", "units"]):
         """Copy values of specified axes fields from the passed AxesManager.
+
         Parameters
         ----------
         axis : DataAxis
