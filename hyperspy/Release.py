@@ -16,7 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with  HyperSpy.  If not, see <http://www.gnu.org/licenses/>.
 
-
 name = 'hyperspy'
 
 # The commit following to a release must update the version number
@@ -74,7 +73,7 @@ keywords = ['EDX',
             'spectroscopy',
             'spectrum image']
 
-info = u"""
+info = """
     H y p e r S p y
     Version %s
 

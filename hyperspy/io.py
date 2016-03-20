@@ -22,11 +22,10 @@ import logging
 
 import hyperspy.defaults_parser
 
-from hyperspy.misc.utils import stack
 import hyperspy.misc.utils
 from hyperspy.misc.io.tools import ensure_directory
 from hyperspy.misc.utils import strlist2enumeration
-from hyperspy.misc.natsort import natsorted
+from natsort import natsorted
 import hyperspy.misc.io.tools
 from hyperspy.io_plugins import io_plugins, default_write_ext
 
@@ -133,11 +132,6 @@ def load(filenames=None,
         Used when loading blockfiles to determine which mode to use for when
         loading as memmap (i.e. when load_to_memory=False)
 
-    print_info: bool
-        For SEMPER unf-files, if True (default is False) header and label
-        information read from the label are printed for a quick overview.
-
-
     Returns
     -------
     Signal instance or list of signal instances
@@ -177,7 +171,7 @@ def load(filenames=None,
         if filenames is None:
             raise ValueError("No file provided to reader")
 
-    if isinstance(filenames, basestring):
+    if isinstance(filenames, str):
         filenames = natsorted([f for f in glob.glob(filenames)
                                if os.path.isfile(f)])
         if not filenames:
@@ -196,10 +190,10 @@ def load(filenames=None,
                 obj = load_single_file(filename,
                                        **kwds)
                 signal.append(obj)
-            signal = stack(signal,
-                           axis=stack_axis,
-                           new_axis_name=new_axis_name,
-                           mmap=mmap, mmap_dir=mmap_dir)
+            signal = hyperspy.misc.utils.stack(signal,
+                                               axis=stack_axis,
+                                               new_axis_name=new_axis_name,
+                                               mmap=mmap, mmap_dir=mmap_dir)
             signal.metadata.General.title = \
                 os.path.split(
                     os.path.split(
@@ -207,7 +201,7 @@ def load(filenames=None,
                     )[0]
                 )[1]
             _logger.info('Individual files loaded correctly')
-            signal._print_summary()
+            _logger.info(signal._summary())
             objects = [signal, ]
         else:
             objects = [load_single_file(filename,
@@ -338,7 +332,7 @@ def assign_signal_subclass(record_by="",
         signal_origin = ""
 
     preselection = [s for s in
-                    [s for s in signals.itervalues()
+                    [s for s in signals.values()
                      if record_by == s._record_by]
                     if signal_origin == s._signal_origin]
     perfect_match = [s for s in preselection
@@ -382,7 +376,7 @@ def dict2signal(signal_dict):
         for f in signal_dict['post_process']:
             signal = f(signal)
     if "mapping" in signal_dict:
-        for opattr, (mpattr, function) in signal_dict["mapping"].iteritems():
+        for opattr, (mpattr, function) in signal_dict["mapping"].items():
             if opattr in signal.original_metadata:
                 value = signal.original_metadata.get_item(opattr)
                 if function is not None:
