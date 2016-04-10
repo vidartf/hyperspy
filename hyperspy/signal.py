@@ -442,7 +442,7 @@ class Signal2DTools(object):
                     correlation_threshold = \
                         (pcarray['max_value'].min(0)).max()
                     _logger.info("Correlation threshold = %1.2f",
-                          correlation_threshold)
+                                 correlation_threshold)
                 shifts[pcarray['max_value'] <
                        correlation_threshold] = ma.masked
                 shifts.mask[ref_index, :] = False
@@ -692,7 +692,7 @@ class Signal1DTools(object):
         original_axis = axis.axis.copy()
         for i, (dat, shift) in enumerate(zip(
                 self._iterate_signal(),
-                shift_array.ravel(()))):
+                shift_array.ravel())):
             if np.isnan(shift):
                 continue
             si = sp.interpolate.interp1d(original_axis,
@@ -2924,6 +2924,7 @@ class Signal(FancySlicing,
                         new_nav_axes.append(saxis if saxis.size > 1 or
                                             oaxis.size == 1 else
                                             oaxis)
+                    bigger_am = None
                     if sam.navigation_dimension != oam.navigation_dimension:
                         bigger_am = (sam
                                      if sam.navigation_dimension >
@@ -3031,9 +3032,9 @@ class Signal(FancySlicing,
             self._plot = old_plot
             self.models._models = old_models
 
-    def _print_summary(self):
+    def _summary(self):
         string = "\n\tTitle: "
-        string += self.metadata.General.title.decode('utf8')
+        string += self.metadata.General.title
         if self.metadata.has_item("Signal.signal_type"):
             string += "\n\tSignal type: "
             string += self.metadata.Signal.signal_type
@@ -3044,7 +3045,10 @@ class Signal(FancySlicing,
             string += self.metadata.Signal.record_by
             string += "\n\tData type: "
             string += str(self.data.dtype)
-        print(string)
+        return string
+
+    def _print_summary(self):
+        print(self._summary())
 
     @property
     def data(self):
