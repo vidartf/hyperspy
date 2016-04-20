@@ -25,7 +25,7 @@ name = 'hyperspy'
 # When running setup.py the "+dev" string will be replaced (if possible)
 # by the output of "git describe" if git is available or the git
 # hash if .git is present.
-version = "0.9+rc1"
+version = "0.9+dev"
 description = "Multidimensional data analysis toolbox"
 license = 'GPL v3'
 

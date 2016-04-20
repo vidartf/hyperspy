@@ -443,6 +443,7 @@ class DataAxis(t.HasTraits):
 
     def update_from(self, axis, attributes=["scale", "offset", "units"]):
         """Copy values of specified axes fields from the passed AxesManager.
+
         Parameters
         ----------
         axis : DataAxis

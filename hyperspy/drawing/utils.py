@@ -461,7 +461,7 @@ def plot_images(images,
             If 'auto', aspect ratio is auto determined, subject to min_asp.
             If 'square', image will be forced onto square display.
             If 'equal', aspect ratio of 1 will be enforced.
-            If float (or int/long), given value will be used.
+            If float (or int), given value will be used.
         min_asp : float, optional
             Minimum aspect ratio to be used when plotting images
         namefrac_thresh : float, optional
@@ -723,7 +723,7 @@ def plot_images(images,
                 yaxis.low_value,
             )
 
-            if not isinstance(aspect, (int, long, float)) and aspect not in [
+            if not isinstance(aspect, (int, float)) and aspect not in [
                     'auto', 'square', 'equal']:
                 raise ValueError('Did not understand aspect ratio input.')
 
@@ -989,6 +989,8 @@ def plot_spectra(
 
         elif hasattr(legend, "__iter__"):
             legend = itertools.cycle(legend)
+        else:
+            raise ValueError("legend must be None, 'auto' or a list of string")
 
     if style == 'overlap':
         if fig is None:

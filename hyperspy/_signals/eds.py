@@ -1013,7 +1013,18 @@ class EDSSpectrum(Spectrum):
                 x=line_energy[i], y=intensity[i] * 1.1, text=string,
                 rotation=90)
             self.add_marker(text)
-            self._xray_markers[xray_lines[i]] = (line, text)
+            self._xray_markers[xray_lines[i]] = [line, text]
+            line.events.closed.connect(self._xray_marker_closed)
+            text.events.closed.connect(self._xray_marker_closed)
+
+    def _xray_marker_closed(self, obj):
+        marker = obj
+        for xray_line, line_markers in reversed(list(
+                self._xray_markers.items())):
+            if marker in line_markers:
+                line_markers.remove(marker)
+            if not line_markers:
+                self._xray_markers.pop(xray_line)
 
     def remove_xray_lines_markers(self, xray_lines):
         """
@@ -1027,7 +1038,9 @@ class EDSSpectrum(Spectrum):
         """
         for xray_line in xray_lines:
             if xray_line in self._xray_markers:
-                for m in self._xray_markers[xray_line]:
+                line_markers = self._xray_markers[xray_line]
+                while line_markers:
+                    m = line_markers.pop()
                     m.close()
 
     def _add_background_windows_markers(self,
