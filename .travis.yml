@@ -44,7 +44,9 @@ script:
       python setup.py build_ext --inplace;
       python continuous_integration/nosetest.py --with-coverage hyperspy.tests;
     else python3 setup.py build_ext --inplace;
+      echo "available python libraries:"
       pip3 list;
+      pip3 install coverage coveralls requests;
       python3 continuous_integration/nosetest.py --with-coverage hyperspy.tests;
     fi
 
