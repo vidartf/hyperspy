@@ -44,6 +44,7 @@ script:
       python setup.py build_ext --inplace;
       python continuous_integration/nosetest.py --with-coverage hyperspy.tests;
     else python3 setup.py build_ext --inplace;
+      pip3 list;
       python3 continuous_integration/nosetest.py --with-coverage hyperspy.tests;
     fi
 
